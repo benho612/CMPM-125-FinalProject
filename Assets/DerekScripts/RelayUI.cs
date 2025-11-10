@@ -130,7 +130,7 @@ public class RelayUI_TMP_Toast_Stop : MonoBehaviour
             string code = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
             if (joinCodeLabel) joinCodeLabel.text = $"Join Code: {code}";
             GUIUtility.systemCopyBuffer = code; // paste straight into your client build
-            Toast("Hosting… join code copied");
+            Toast("Hosting?join code copied");
 
             bool ok = nm.StartHost();
             Debug.Log($"[Host] StartHost result={ok}");
@@ -180,7 +180,7 @@ public class RelayUI_TMP_Toast_Stop : MonoBehaviour
             if (!ok) { Toast("StartClient failed.", true); SetInteractable(true, true, false); return; }
 
             SetInteractable(canHost: false, canJoin: false, canStop: true);
-            Toast("Joining…");
+            Toast("Joining?");
         }
         catch (System.Exception e)
         {
