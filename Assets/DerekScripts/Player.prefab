@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 2409903609530922607}
   - component: {fileID: 6189121248840907735}
   - component: {fileID: 2896426896170701133}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Main Camera
   m_TagString: MainCamera
   m_Icon: {fileID: 0}
@@ -153,7 +153,9 @@ GameObject:
   - component: {fileID: 5478414543992236491}
   - component: {fileID: 2290575791761764915}
   - component: {fileID: 2328089975979974119}
-  m_Layer: 0
+  - component: {fileID: -3878630520821748629}
+  - component: {fileID: -7190422583735680621}
+  m_Layer: 6
   m_Name: Player
   m_TagString: Player
   m_Icon: {fileID: 0}
@@ -360,3 +362,28 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
+--- !u!114 &-3878630520821748629
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7536357155691039893}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cccbe7bcaa8e91c4195333bc4e1ff895, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerDamageReceiver
+  hp: 100
+--- !u!114 &-7190422583735680621
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7536357155691039893}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: feff78967984444419f767f45a4af7ac, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerStun
