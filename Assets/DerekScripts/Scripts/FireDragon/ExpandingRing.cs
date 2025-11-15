@@ -1,4 +1,3 @@
-// Assets/Bosses/_Shared/ExpandingRing.cs
 using UnityEngine;
 
 public class ExpandingRing : MonoBehaviour
@@ -18,8 +17,8 @@ public class ExpandingRing : MonoBehaviour
         age += Time.deltaTime;
         innerRadius += speed * Time.deltaTime;
 
-        // visuals: scale a torus/quad ring here if you have one
-        // transform.localScale = new Vector3(innerRadius*2f, 0.1f, innerRadius*2f);
+        // This line scales the whole prefab (including particles) so visuals expand in sync with logic
+        transform.localScale = new Vector3(innerRadius * 2f, 1f, innerRadius * 2f);
 
         if (authoritative)
         {
