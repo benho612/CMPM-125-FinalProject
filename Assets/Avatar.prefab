@@ -12,9 +12,9 @@ GameObject:
   - component: {fileID: 8118252207703568450}
   - component: {fileID: 3191876085389903368}
   - component: {fileID: 7951588122405428779}
-  - component: {fileID: 2996796486599184122}
   - component: {fileID: 8025539964231456391}
-  m_Layer: 0
+  - component: {fileID: 6251400698662368763}
+  m_Layer: 6
   m_Name: Avatar
   m_TagString: Player
   m_Icon: {fileID: 0}
@@ -112,31 +112,13 @@ MonoBehaviour:
   _uidString: 02f14e8c-7bfc-47cd-808d-77f5f4d50cfd
   Reliability: 1
   LocalMethodBehavior: 1
-  avatar: {fileID: 0}
+  avatar: {fileID: 8118252207703568450}
   characterModels:
   - {fileID: 1503359213860922451}
   - {fileID: 5946582019547076586}
   - {fileID: 3292014399746751118}
---- !u!114 &2996796486599184122
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 125098771000295103}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3629457fa45cfd546ace9456bdefdaee, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PlayerController
-  walkingSpeed: 7.5
-  runningSpeed: 11.5
-  jumpSpeed: 8
-  gravity: 20
-  lookSpeed: 2
-  lookXLimit: 45
-  canMove: 1
-  cameraYOffset: 0.4
+  playerCamera: {fileID: 2197913383401492358}
+  characterId: 0
 --- !u!143 &8025539964231456391
 CharacterController:
   m_ObjectHideFlags: 0
@@ -162,6 +144,29 @@ CharacterController:
   m_SkinWidth: 0.08
   m_MinMoveDistance: 0.001
   m_Center: {x: 0, y: 0.7, z: 0}
+--- !u!114 &6251400698662368763
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 125098771000295103}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 535d2d838da9a6949b0e132d0b683c5b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerControl
+  walkingSpeed: 7.5
+  runningSpeed: 11.5
+  jumpSpeed: 8
+  gravity: 20
+  lookSpeed: 2
+  lookXLimit: 45
+  cameraDistance: 10
+  cameraHeight: 5
+  cameraSmooth: 10
+  canMove: 1
+  cameraYOffset: 4
 --- !u!1 &697565512125543728
 GameObject:
   m_ObjectHideFlags: 0
@@ -191,7 +196,7 @@ Transform:
   m_GameObject: {fileID: 697565512125543728}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1.985, z: -2.583}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []

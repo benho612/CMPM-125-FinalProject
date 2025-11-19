@@ -224,6 +224,7 @@ public class CharacterSelectionNetwork : AttributesSync
 
         // remember which character THIS client picked (for loading next scene)
         CharacterDatabase.SelectedCharacterID = _localSelectedCharacter;
+        Debug.Log($"[Selection] Setting SelectedCharacterID = {_localSelectedCharacter} for local user {_localUserIndex}", this);
 
         _localLocked = true;
         SetCharacterColliders(false);
@@ -270,18 +271,19 @@ public class CharacterSelectionNetwork : AttributesSync
             return;
         }
 
-        // Host check: in Alteruna, host is user index 0
-        _localUserIndex = multiplayerRef.GetUser().Index;
+        // Make sure we know our index
+        if (_localUserIndex < 0 && Multiplayer != null)
+            _localUserIndex = Multiplayer.GetUser().Index;
+
         bool isHost = _localUserIndex == 0;
         Debug.Log($"[Selection] isHost={isHost}", this);
 
+        // Only host is allowed to start the game
         if (!isHost)
-            return; // non-host can click but nothing happens
+            return;
 
-        DisableSelectionPhase();
-
-        Debug.Log("[Selection] Host starting game, loading scene for everyone.", this);
-        multiplayerRef.LoadScene(gameSceneName, true);
+        // Host tells EVERYONE (including itself) to start the game
+        BroadcastRemoteMethod(nameof(RpcStartGame));
     }
 
     // ----------------------------------------------------------------
@@ -319,6 +321,25 @@ public class CharacterSelectionNetwork : AttributesSync
         }
 
         UpdateReadyButton();
+    }
+
+    [SynchronizableMethod]
+    private void RpcStartGame()
+    {
+        Debug.Log("[Selection] RpcStartGame called, loading game scene.", this);
+
+        // Hide UI / disable selection locally
+        DisableSelectionPhase();
+
+        if (multiplayerRef != null)
+        {
+            // Each client loads the scene on its own Multiplayer
+            multiplayerRef.LoadScene(gameSceneName, true);
+        }
+        else
+        {
+            Debug.LogError("[Selection] RpcStartGame: multiplayerRef is null!", this);
+        }
     }
 
     private bool AllPlayersReady()
