@@ -34,12 +34,10 @@ public class PlayerControl : MonoBehaviour
     private float lastAttackTime = 0f;
 
     [Header("Wizard Attack (charge)")]
-    [SerializeField] private float wizardLightThreshold = 0.25f;   // < 0.25s = light
-    [SerializeField] private float wizardHeavyThreshold = 0.75f;   // 0.25¡V0.75 = medium, > 0.75 = heavy
-    [SerializeField] private float wizardMaxChargeTime = 1.5f;
-
-    private bool wizardIsCharging = false;
-    private float wizardChargeTime = 0f;
+    [SerializeField] private float wizardHoldThreshold = 0.25f; // seconds before it becomes a channel
+    private bool wizardIsChanneling = false;
+    private float wizardPressTime = 0f;
+    private Coroutine wizardHoldRoutine = null;
 
     [Header("Input Actions (New Input System)")]
     public InputActionReference attackAction;
@@ -180,6 +178,11 @@ public class PlayerControl : MonoBehaviour
         if (isDefending)
             baseSpeed *= defendSpeedMultiplier;
 
+        if (attackStyle == AttackStyle.Wizard && wizardIsChanneling)
+        {
+            baseSpeed = 0f;   // you can still rotate, but no walking/running
+        }
+
         float curSpeedZ = canMove ? baseSpeed * inputVec.y : 0f;
         float curSpeedX = canMove ? baseSpeed * inputVec.x : 0f;
 
@@ -189,8 +192,11 @@ public class PlayerControl : MonoBehaviour
         // ---- Jump & Double Jump ----
         if (characterController.isGrounded)
             jumpCount = 0;
-
-        if (canMove && Input.GetButtonDown("Jump"))
+        if (attackStyle == AttackStyle.Wizard && wizardIsChanneling)
+        {
+            // Skip all jump handling while channeling
+        }
+        else if (canMove && Input.GetButtonDown("Jump"))
         {
             if (characterController.isGrounded)
             {
@@ -228,30 +234,39 @@ public class PlayerControl : MonoBehaviour
             comboStep = 0;
         }
 
-        // --- COMBO ATTACK INPUT (Input System) ---
+        // --- ATTACK INPUT ---
+        // We handle "press" for both Warrior and Wizard here
         if (animator != null && attackAction != null && attackAction.action.WasPerformedThisFrame())
         {
+            // If defending, ignore attacks
             if (isDefending)
                 return;
 
+            // Global cooldown between presses
             if (Time.time - lastAttackTime < attackCooldown)
                 return;
 
             lastAttackTime = Time.time;
 
-            // Choose attack system by character type
             if (attackStyle == AttackStyle.Warrior)
             {
                 HandleWarriorCombo();
+                EnterCombat();
             }
             else if (attackStyle == AttackStyle.Wizard)
             {
-                HandleWizardAttack();
+                WizardAttackPressed();
+                EnterCombat();
             }
+        }
 
-            inCombat = true;
-            lastCombatTime = Time.time;
-            animator.SetBool("InCombat", true);
+        // Wizard also needs to know when the button is released
+        if (attackStyle == AttackStyle.Wizard && attackAction != null)
+        {
+            if (attackAction.action.WasReleasedThisFrame())
+            {
+                WizardAttackReleased();
+            }
         }
 
         // ---- DEFEND INPUT ----
@@ -388,34 +403,86 @@ public class PlayerControl : MonoBehaviour
         }
 
         lastAttackClickTime = Time.time;
-        PlayAttackAnimation(comboStep);
+        PlayAttackAnimation(comboStep); // This still plays Attack01..04
     }
 
     // ================== WIZARD ATTACK (hold to charge) ==================
-    private float chargeStart = 0f;
-
-    private void HandleWizardAttack()
+    private void WizardAttackPressed()
     {
-        chargeStart = Time.time;
-        animator.CrossFade("AttackCharge", 0.05f);
+        wizardPressTime = Time.time;
 
-        StartCoroutine(ReleaseWizardSpell());
+        // First, do the quick instant attack (small damage)
+        // This can be interrupted later if we start channeling.
+        if (animator != null)
+        {
+            animator.CrossFade("Attack01", 0.05f, 0);
+        }
+
+        // Start a small delay to detect if this becomes a hold
+        if (wizardHoldRoutine != null)
+            StopCoroutine(wizardHoldRoutine);
+
+        wizardHoldRoutine = StartCoroutine(WizardHoldCheck());
     }
 
-    private IEnumerator ReleaseWizardSpell()
+    private IEnumerator WizardHoldCheck()
     {
-        // Wait for button release
-        while (attackAction.action.IsPressed())
-            yield return null;
+        float pressStamp = wizardPressTime;
 
-        float chargeTime = Time.time - chargeStart;
+        // Wait for the threshold
+        yield return new WaitForSeconds(wizardHoldThreshold);
 
-        if (chargeTime < 0.5f)
-            animator.CrossFade("Attack01", 0.05f);     // weak spell
-        else if (chargeTime < 1.5f)
-            animator.CrossFade("Attack02", 0.05f);     // medium spell
-        else
-            animator.CrossFade("Attack03", 0.05f);     // full power spell
+        // If button is still held, and this is still the same press, start channel
+        if (attackAction != null &&
+            attackAction.action.IsPressed() &&
+            Mathf.Approximately(pressStamp, wizardPressTime) &&
+            !wizardIsChanneling)
+        {
+            StartWizardChannel();
+        }
     }
 
+    private void StartWizardChannel()
+    {
+        wizardIsChanneling = true;
+
+        if (animator != null)
+        {
+            animator.SetBool("IsChanneling", true);               // Drives Attack02Start / Maintain transitions
+            animator.CrossFade("Attack02Start", 0.05f, 0);        // Play the start animation
+        }
+    }
+
+    // Called when LMB is released
+    private void WizardAttackReleased()
+    {
+        // Stop any pending hold detection
+        if (wizardHoldRoutine != null)
+        {
+            StopCoroutine(wizardHoldRoutine);
+            wizardHoldRoutine = null;
+        }
+
+        // If we were channeling, tell the animator to exit Attack02Maintain back to Battle_Idle
+        if (wizardIsChanneling)
+        {
+            wizardIsChanneling = false;
+
+            if (animator != null)
+            {
+                animator.SetBool("IsChanneling", false);
+            }
+        }
+
+        // If we were NOT channeling, it was just a tap:
+        // Attack01 already played on press, so nothing else to do here.
+    }
+    private void EnterCombat()
+    {
+        inCombat = true;
+        lastCombatTime = Time.time;
+
+        if (animator != null)
+            animator.SetBool("InCombat", true);
+    }
 }
