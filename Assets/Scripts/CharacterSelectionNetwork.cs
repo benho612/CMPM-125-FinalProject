@@ -21,7 +21,7 @@ public class CharacterSelectionNetwork : AttributesSync
 
     [Header("Multiplayer")]
     public Multiplayer multiplayerRef;      // Alteruna Multiplayer
-    public string gameSceneName = "SampleScene";
+    public string gameSceneName = "KitchenScene";
 
     // For each character: -1 = free, otherwise user index that owns it
     private int[] _characterOwner;
@@ -36,6 +36,7 @@ public class CharacterSelectionNetwork : AttributesSync
 
     private Room _room; // current room
 
+
     // ----------------------------------------------------------------
     // Lifecycle
     // ----------------------------------------------------------------
@@ -43,7 +44,7 @@ public class CharacterSelectionNetwork : AttributesSync
     private void Awake()
     {
         if (multiplayerRef == null)
-            multiplayerRef = FindObjectOfType<Multiplayer>();
+            multiplayerRef = Object.FindFirstObjectByType<Multiplayer>();
 
         if (multiplayerRef != null)
         {
