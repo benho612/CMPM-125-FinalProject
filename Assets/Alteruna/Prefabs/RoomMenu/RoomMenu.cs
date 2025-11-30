@@ -3,12 +3,13 @@ using UnityEngine;
 using UnityEngine.UI;
 using System.Linq;
 using Alteruna.Trinity;
+using TMPro;
 
 namespace Alteruna
 {
 	public class RoomMenu : CommunicationBridge
 	{
-		[SerializeField] private Text TitleText;
+		[SerializeField] private TMP_Text TitleText;
 		[SerializeField] private GameObject LANEntryPrefab;
 		[SerializeField] private GameObject WANEntryPrefab;
 		[SerializeField] private GameObject ContentContainer;

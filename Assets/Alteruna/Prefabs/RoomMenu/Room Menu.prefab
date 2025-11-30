@@ -2019,7 +2019,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   Multiplayer: {fileID: 0}
-  TitleText: {fileID: 8763101912947651791}
+  TitleText: {fileID: 0}
   LANEntryPrefab: {fileID: 203257309}
   WANEntryPrefab: {fileID: 8763101913713047505}
   ContentContainer: {fileID: 8763101912591529868}
