@@ -34,10 +34,13 @@ public class PlayerDamageReceiver : MonoBehaviour
     private bool _dead;
     private float _respawnTimer;
 
+    private WarriorCombatController _warriorCombat;
+
     // --------------------------------------------------------
     void Awake()
     {
         _animator = FindActiveAnimator();
+        _warriorCombat = GetComponent<WarriorCombatController>();
         _playerControl = GetComponent<PlayerControl>();
 
         if (_animator != null)
@@ -78,7 +81,13 @@ public class PlayerDamageReceiver : MonoBehaviour
     {
         if (_dead) return;
 
-        bool isDefendingNow = _playerControl != null && _playerControl.IsDefending;
+        bool isDefendingNow = false;
+
+        // Warriors
+        if (_warriorCombat != null && _warriorCombat.enabled)
+        {
+            isDefendingNow = _warriorCombat.IsDefending;
+        }
 
         float finalDamage = amount;
 
