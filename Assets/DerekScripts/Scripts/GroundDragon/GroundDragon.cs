@@ -28,7 +28,7 @@ public class GroundDragon : BossController
     public float jumpDamage = 40f;
     public float jumpRadius = 8f;
     public float jumpWindup = 0.8f;      // telegraph time
-    public float jumpTravel = 0.55f;     // “air time”
+    public float jumpTravel = 0.55f;     // “air time?
     public float jumpArcHeight = 3.5f;
     public float jumpCooldown = 10f;
     public float slowMultiplier = 0.6f;
@@ -130,7 +130,7 @@ public class GroundDragon : BossController
     Transform ClosestPlayer()
     {
         float best = 999f; Transform bestT = null;
-        foreach (var c in FindObjectsOfType<CharacterController>())
+        foreach (var c in FindObjectsByType<CharacterController>(FindObjectsSortMode.None))
         {
             if (c.gameObject == gameObject) continue;
             float d = Vector3.Distance(transform.position, c.transform.position);

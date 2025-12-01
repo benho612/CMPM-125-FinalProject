@@ -51,7 +51,7 @@ namespace Alteruna
 
 			RoomNameChanged(Multiplayer.Me.Name);
 			PopulateDropdownWithEnumValues<GameMode>(_dropdownGameMode);
-			PopulateDropdownWithSceneNames(_dropdownScene);
+			//PopulateDropdownWithSceneNames(_dropdownScene);
 
 			_inputRoomName.characterLimit = MaxNameLength;
 
@@ -59,7 +59,7 @@ namespace Alteruna
 			_inputMaxPlayers.onEndEdit.AddListener(MaxPlayersChanged);
 
 			_dropdownGameMode.onValueChanged.AddListener(GameModeChanged);
-			_dropdownScene.onValueChanged.AddListener(MapChanged);
+			//_dropdownScene.onValueChanged.AddListener(MapChanged);
 			_toggleHideRoom.onValueChanged.AddListener(ToggleHideRoom);
 
 			_buttonCreateRoom.onClick.AddListener(Submit);
@@ -109,14 +109,14 @@ namespace Alteruna
 				_dropdownGameMode.SetValueWithoutNotify((int)_customRoomInfo.GameMode);
 		}
 
-		private void MapChanged(int value)
+		/*private void MapChanged(int value)
 		{
 			HandleMapValue(value);
 			SetMapInfo();
 
 			if (_customRoomInfo.SceneIndex != _mapDescriptions[value].BuildIndex)
 				_dropdownScene.SetValueWithoutNotify(_customRoomInfo.SceneIndex);
-		}
+		}*/
 
 		private void CreatedRoom(Multiplayer multiplayer, bool success, Room room, string inviteCode)
 		{
