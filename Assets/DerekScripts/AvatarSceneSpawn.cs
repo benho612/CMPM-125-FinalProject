@@ -1,16 +1,27 @@
+// Assets/_Net/AvatarSpawnOnLoad.cs
+using Alteruna;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using Alteruna;
+using System.Collections;
 
 [RequireComponent(typeof(Alteruna.Avatar))]
-public class AvatarSceneSpawn : MonoBehaviour
+[RequireComponent(typeof(CharacterController))]
+public class AvatarSpawnOnLoad : MonoBehaviour
 {
-    Alteruna.Avatar _avatar;
+    private Alteruna.Avatar _avatar;
+    private CharacterController _cc;
+
+    [Tooltip("Prefix of spawn transforms, e.g. Spawn_0, Spawn_1")]
+    public string spawnPrefix = "Spawn_";
+
+    [Tooltip("Max time to wait for spawns to appear in the new scene")]
+    public float waitForSpawnTimeout = 1.0f; // seconds
 
     void Awake()
     {
         _avatar = GetComponent<Alteruna.Avatar>();
-        DontDestroyOnLoad(gameObject); // keep avatar across scenes
+        _cc = GetComponent<CharacterController>();
+        DontDestroyOnLoad(gameObject);
         SceneManager.sceneLoaded += OnSceneLoaded;
     }
 
@@ -18,23 +29,43 @@ public class AvatarSceneSpawn : MonoBehaviour
 
     void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        // Only reposition our own local avatar; Alteruna will replicate transform to others
         if (_avatar == null || !_avatar.IsMe) return;
+        StartCoroutine(PlaceAtSpawnWhenReady());
+    }
 
-        // Choose spawn index: host ? A, client ? B (simple 2-player rule)
-        bool isHost = SceneDirector.Instance && SceneDirector.Instance.IsHost;
-        string spawnName = isHost ? "Spawn_A" : "Spawn_B";
+    IEnumerator PlaceAtSpawnWhenReady()
+    {
+        // wait a few frames (and up to timeout) for scene content to activate
+        float t = 0f;
+        Transform spawn = null;
+        while (t < waitForSpawnTimeout)
+        {
+            spawn = FindMySpawn();
+            if (spawn != null) break;
+            t += Time.unscaledDeltaTime;
+            yield return null;
+        }
 
-        var target = GameObject.Find(spawnName);
-        if (target != null)
+        if (spawn == null)
         {
-            transform.position = target.transform.position;
-            transform.rotation = target.transform.rotation;
+            Debug.LogWarning("[Spawn] No spawn found. Staying at current position.");
+            yield break;
         }
-        else
-        {
-            // Fallback: center
-            transform.position = Vector3.zero;
-        }
+
+        // Teleport safely with CC off to avoid ground penetration issues
+        _cc.enabled = false;
+        transform.SetPositionAndRotation(spawn.position, spawn.rotation);
+        _cc.enabled = true;
+    }
+
+    Transform FindMySpawn()
+    {
+        var mp = FindFirstObjectByType<Multiplayer>();
+        int idx = 0;
+        if (mp != null && mp.InRoom && mp.GetUser() != null)
+            idx = mp.GetUser().Index; // 0 = host, 1 = client
+
+        var go = GameObject.Find(spawnPrefix + idx); // requires active objects
+        return go ? go.transform : null;
     }
 }

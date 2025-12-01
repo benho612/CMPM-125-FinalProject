@@ -17,6 +17,7 @@ GameObject:
   - component: {fileID: 585299912668349793}
   - component: {fileID: 6092655716832943}
   - component: {fileID: 7387383018468365380}
+  - component: {fileID: -940402020210530260}
   m_Layer: 6
   m_Name: Avatar
   m_TagString: Player
@@ -243,6 +244,18 @@ MonoBehaviour:
   shieldPoint: {fileID: 0}
   shieldVfxPrefab: {fileID: 6424583148328831481, guid: d2ffbc8b168cdf74a9dbb7c6c1cfdf2f, type: 3}
   shieldForwardOffset: 0.2
+--- !u!114 &-940402020210530260
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 125098771000295103}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e596a6587d4763a4bbcb3f89a2017d9d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AvatarSceneSpawn
 --- !u!1 &697565512125543728
 GameObject:
   m_ObjectHideFlags: 0
