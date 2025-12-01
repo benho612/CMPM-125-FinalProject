@@ -1,7 +1,8 @@
-using System.Collections;
-using System.Collections.Generic;
+using Alteruna;
 using UnityEngine;
 
+[RequireComponent(typeof(Alteruna.Avatar))]
+[RequireComponent(typeof(CharacterController))]
 public class PlayerController : MonoBehaviour
 {
     [Header("Base setup")]
@@ -12,77 +13,85 @@ public class PlayerController : MonoBehaviour
     public float lookSpeed = 2.0f;
     public float lookXLimit = 45.0f;
 
-    CharacterController characterController;
-    Vector3 moveDirection = Vector3.zero;
-    float rotationX = 0;
-
-    [HideInInspector]
-    public bool canMove = true;
-
-    [SerializeField]
-    private float cameraYOffset = 0.4f;
-    private Camera playerCamera;
+    [SerializeField] private float cameraYOffset = 0.4f;
 
     private Alteruna.Avatar _avatar;
+    private CharacterController _cc;
+    private Camera _cam;
+
+    private Vector3 _move = Vector3.zero;
+    private float _rotX;
+    public bool canMove = true;
+
+    void Awake()
+    {
+        _avatar = GetComponent<Alteruna.Avatar>();
+        _cc = GetComponent<CharacterController>();
+
+        // If you accidentally have a Rigidbody on this prefab, stop it on remotes.
+        if (TryGetComponent<Rigidbody>(out var rb))
+        {
+            bool local = _avatar != null && _avatar.IsMe;
+            rb.isKinematic = !local;
+            rb.useGravity = local;
+        }
+
+        // Optional but safest: remote clones don't need a CC collider at all.
+        // If you want remotes to never collide/push locally, uncomment:
+        // if (_avatar != null && !_avatar.IsMe) _cc.enabled = false;
+    }
 
     void Start()
     {
-        _avatar = GetComponent<Alteruna.Avatar>();
+        if (_avatar == null || !_avatar.IsMe) return;
 
-        if (!_avatar.IsMe)
-            return;
+        // Attach camera only on the local avatar
+        _cam = Camera.main;
+        if (_cam != null)
+        {
+            _cam.transform.SetParent(transform, worldPositionStays: false);
+            _cam.transform.localPosition = new Vector3(0f, cameraYOffset, 0f);
+            _cam.transform.localRotation = Quaternion.identity;
+        }
 
-        characterController = GetComponent<CharacterController>();
-        playerCamera = Camera.main;
-        playerCamera.transform.position = new Vector3(transform.position.x, transform.position.y + cameraYOffset, transform.position.z);
-        playerCamera.transform.SetParent(transform);
-        // Lock cursor
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
     }
 
     void Update()
     {
-        if (!_avatar.IsMe)
+        if (_avatar == null || !_avatar.IsMe)
             return;
 
-        bool isRunning = false;
+        bool isRunning = Input.GetKey(KeyCode.LeftShift);
 
-        // Press Left Shift to run
-        isRunning = Input.GetKey(KeyCode.LeftShift);
+        Vector3 fwd = transform.forward;
+        Vector3 right = transform.right;
 
-        // We are grounded, so recalculate move direction based on axis
-        Vector3 forward = transform.TransformDirection(Vector3.forward);
-        Vector3 right = transform.TransformDirection(Vector3.right);
+        float speed = isRunning ? runningSpeed : walkingSpeed;
+        float vx = canMove ? speed * Input.GetAxis("Vertical") : 0f;
+        float vz = canMove ? speed * Input.GetAxis("Horizontal") : 0f;
 
-        float curSpeedX = canMove ? (isRunning ? runningSpeed : walkingSpeed) * Input.GetAxis("Vertical") : 0;
-        float curSpeedY = canMove ? (isRunning ? runningSpeed : walkingSpeed) * Input.GetAxis("Horizontal") : 0;
-        float movementDirectionY = moveDirection.y;
-        moveDirection = (forward * curSpeedX) + (right * curSpeedY);
+        float y = _move.y;
+        _move = fwd * vx + right * vz;
 
-        if (Input.GetButton("Jump") && canMove && characterController.isGrounded)
+        if (_cc.isGrounded)
         {
-            moveDirection.y = jumpSpeed;
+            if (canMove && Input.GetButton("Jump")) y = jumpSpeed;
         }
         else
         {
-            moveDirection.y = movementDirectionY;
+            y -= gravity * Time.deltaTime;
         }
+        _move.y = y;
 
-        if (!characterController.isGrounded)
+        _cc.Move(_move * Time.deltaTime);
+
+        if (canMove && _cam != null)
         {
-            moveDirection.y -= gravity * Time.deltaTime;
-        }
-
-        // Move the controller
-        characterController.Move(moveDirection * Time.deltaTime);
-
-        // Player and Camera rotation
-        if (canMove && playerCamera != null)
-        {
-            rotationX += -Input.GetAxis("Mouse Y") * lookSpeed;
-            rotationX = Mathf.Clamp(rotationX, -lookXLimit, lookXLimit);
-            playerCamera.transform.localRotation = Quaternion.Euler(rotationX, 0, 0);
+            _rotX += -Input.GetAxis("Mouse Y") * lookSpeed;
+            _rotX = Mathf.Clamp(_rotX, -lookXLimit, lookXLimit);
+            _cam.transform.localRotation = Quaternion.Euler(_rotX, 0, 0);
             transform.rotation *= Quaternion.Euler(0, Input.GetAxis("Mouse X") * lookSpeed, 0);
         }
     }

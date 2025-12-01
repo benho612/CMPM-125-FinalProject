@@ -201,7 +201,9 @@ namespace Alteruna
 			{
 				TitleText.text = "In Room " + room.Name;
 			}
-		}
+            if (SceneDirector.Instance != null)
+                SceneDirector.Instance.HostStartInHub();
+        }
 
 		private void LeftRoom(Multiplayer multiplayer)
 		{
