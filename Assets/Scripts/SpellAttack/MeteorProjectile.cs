@@ -15,6 +15,10 @@ public class MeteorProjectile : MonoBehaviour
     public GameObject impactVfxPrefab;
     public float impactVfxLifetime = 2f;
 
+    [Header("Camera Shake")]
+    public float shakeDuration = 0.25f;
+    public float shakeMagnitude = 0.35f;
+
     Vector3 _targetPosition;
     bool _hasTarget = false;
 
@@ -71,6 +75,11 @@ public class MeteorProjectile : MonoBehaviour
                 Quaternion.identity
             );
             Destroy(fx, impactVfxLifetime);
+        }
+
+        if (CameraShake.Instance != null)
+        {
+            CameraShake.Instance.Shake(shakeDuration, shakeMagnitude);
         }
 
         Destroy(gameObject);

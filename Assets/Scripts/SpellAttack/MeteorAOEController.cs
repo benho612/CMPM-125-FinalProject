@@ -27,9 +27,15 @@ public class MeteorAOEController : MonoBehaviour
     [Tooltip("Lifetime of this AOE object (destroy after meteors are done).")]
     public float aoeLifetime = 5f;
 
+    [Header("Audio")]
+    public AudioSource aoeSource;     // optional, can be auto-created
+    public AudioClip aoeLoopClip;
+
+    public float aoeVolume = 1f;
     void Start()
     {
         StartCoroutine(SpawnMeteorsRoutine());
+        SetupAndPlayAudio();
         Destroy(gameObject, aoeLifetime);
     }
 
@@ -66,5 +72,24 @@ public class MeteorAOEController : MonoBehaviour
 
             yield return new WaitForSeconds(betweenMeteorDelay);
         }
+    }
+
+    void SetupAndPlayAudio()
+    {
+        if (aoeLoopClip == null)
+            return;
+
+        if (aoeSource == null)
+        {
+            aoeSource = gameObject.AddComponent<AudioSource>();
+        }
+
+        aoeSource.clip = aoeLoopClip;
+        aoeSource.volume = aoeVolume;
+        aoeSource.loop = true;
+        aoeSource.playOnAwake = false;
+        aoeSource.spatialBlend = 0f; // or 1f if you want 3D localized sound
+
+        aoeSource.Play();
     }
 }

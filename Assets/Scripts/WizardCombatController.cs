@@ -15,8 +15,6 @@ public class WizardCombatController : MonoBehaviour
 
     [Header("Fireball Prefabs")]
     public GameObject smallFireballPrefab;   // tap shot
-
-    [Tooltip("Where fireballs spawn (tip of staff).")]
     public Transform firePoint;
 
     [Header("Tap vs Hold Settings")]
@@ -55,6 +53,20 @@ public class WizardCombatController : MonoBehaviour
 
     [Tooltip("Max aiming distance for the meteor.")]
     public float maxAimDistance = 30f;
+
+    [Header("Audio")]
+    [Tooltip("One-shot SFX (tap fireball, meteor release).")]
+    public AudioSource oneShotSource;
+
+    public AudioClip leftClickClip;      // tap attack
+    public AudioClip meteorReleaseClip;  // AOE release
+    public float oneShotVolume = 1f;
+
+    [Header("Channel Audio")]
+    [Tooltip("Looping source for channel/aiming SFX.")]
+    public AudioSource channelSource;
+    public AudioClip channelLoopClip;
+    public float channelVolume = 1f;
 
     // ---- runtime ----
     private PlayerControl _playerControl;
@@ -111,6 +123,23 @@ public class WizardCombatController : MonoBehaviour
             if (playerCamera == null)
                 Debug.LogWarning("WizardCombatController: No camera found in this avatar!");
         }
+
+        if (oneShotSource == null)
+        {
+            oneShotSource = gameObject.AddComponent<AudioSource>();
+            oneShotSource.playOnAwake = false;
+            oneShotSource.loop = false;
+            oneShotSource.spatialBlend = 0f; // 2D, always audible
+        }
+
+        if (channelSource == null)
+        {
+            channelSource = gameObject.AddComponent<AudioSource>();
+            channelSource.playOnAwake = false;
+            channelSource.loop = true;       // this one will loop
+            channelSource.spatialBlend = 0f;
+        }
+
     }
 
     void Update()
@@ -146,6 +175,7 @@ public class WizardCombatController : MonoBehaviour
         if (attack.WasPressedThisFrame())
         {
             TryTapFireball();
+            
         }
 
     }
@@ -227,6 +257,7 @@ public class WizardCombatController : MonoBehaviour
 
         if (_playerControl != null)
             _playerControl.EnterCombatFromAttack();
+        PlayLeftClickSfx();
     }
 
     // ---------------- CHANNEL ----------------
@@ -298,6 +329,8 @@ public class WizardCombatController : MonoBehaviour
 
         // start Attack02Start; your animator should go into Attack02Maintain while IsChanneling == true
         _animator.CrossFade(stateAttack02Start, 0.05f, 0);
+
+        StartChannelSfx();
     }
 
     void EndMeteorAim()
@@ -311,6 +344,8 @@ public class WizardCombatController : MonoBehaviour
 
         if (!string.IsNullOrEmpty(stateBattleIdle))
             _animator.CrossFade(stateBattleIdle, 0.1f, 0);
+
+        StopChannelSfx();
     }
 
     void UpdateMeteorAimIndicator()
@@ -338,6 +373,37 @@ public class WizardCombatController : MonoBehaviour
             _currentIndicator.SetActive(false);
         }
     }
+    //AUDIO METHODS
+    void PlayLeftClickSfx()
+    {
+        if (oneShotSource != null && leftClickClip != null)
+            oneShotSource.PlayOneShot(leftClickClip, oneShotVolume);
+    }
 
+    void PlayMeteorReleaseSfx()
+    {
+        if (oneShotSource != null && meteorReleaseClip != null)
+            oneShotSource.PlayOneShot(meteorReleaseClip, oneShotVolume);
+    }
+
+    void StartChannelSfx()
+    {
+        if (channelSource == null || channelLoopClip == null)
+            return;
+
+        if (!channelSource.isPlaying)
+        {
+            channelSource.clip = channelLoopClip;
+            channelSource.volume = channelVolume;
+            channelSource.loop = true;
+            channelSource.Play();
+        }
+    }
+
+    void StopChannelSfx()
+    {
+        if (channelSource != null && channelSource.isPlaying)
+            channelSource.Stop();
+    }
 
 }

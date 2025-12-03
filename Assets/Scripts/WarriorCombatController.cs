@@ -68,6 +68,11 @@ public class WarriorCombatController : MonoBehaviour
     // Cache the boss reference (auto-found)
     private BossHealth _boss;
 
+    [Header("Slash Audio")]
+    public AudioSource slashAudioSource;
+    public AudioClip slashAttackClip;
+    public float slashVolume = 1.0f;
+
     void Start()
     {
         _avatar = GetComponent<Alteruna.Avatar>();
@@ -343,6 +348,11 @@ public class WarriorCombatController : MonoBehaviour
 
         GameObject fx = Instantiate(prefab, spawnPos, rot, root);
         Destroy(fx, slashLifetime);
+
+        if (slashAudioSource != null && slashAttackClip != null)
+        {
+            slashAudioSource.PlayOneShot(slashAttackClip, slashVolume);
+        }
     }
 
     void ShowShieldVfx()
