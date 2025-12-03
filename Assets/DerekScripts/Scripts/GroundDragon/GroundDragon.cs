@@ -39,6 +39,9 @@ public class GroundDragon : BossController
     public float landBlend = 0.05f;        // crossfade duration into Land
     public float landHold = 0.20f;        // how long to show Land before Idle
 
+    // Net
+    public BossNetSync net;
+
     // Animator param hashes
     Animator anim;
     static readonly int MoveSpeedID = Animator.StringToHash("MoveSpeed");
@@ -62,12 +65,39 @@ public class GroundDragon : BossController
     bool acting;            // block locomotion while true
     Vector3 lastJumpDest;   // for impact AoE (also used if an AnimEvent calls Impact)
 
+    // client-mirror scratch/jump data
+    Vector3 _pendingJumpDest;
+    bool _havePendingJumpDest;
+
     protected override void Awake()
     {
         base.Awake();
         cc = GetComponent<CharacterController>();
         anim = GetComponent<Animator>();
         if (anim) anim.applyRootMotion = false; // we drive movement with CharacterController
+
+        // Wire net events to mirror host actions on clients
+        if (net == null) net = GetComponent<BossNetSync>();
+        if (net != null)
+        {
+            // Host will call net.BroadcastStartAttack; clients receive here
+            net.OnStartAttack += OnNetStartAttack;
+            // Host will send jump landing pos via net.BroadcastImpact; clients cache it
+            net.OnImpactVfx += OnNetImpactVfx;
+        }
+        else
+        {
+            Debug.LogWarning("[GroundDragon] BossNetSync not found; multiplayer mirroring will be disabled on clients.");
+        }
+    }
+
+    void OnDestroy()
+    {
+        if (net != null)
+        {
+            net.OnStartAttack -= OnNetStartAttack;
+            net.OnImpactVfx -= OnNetImpactVfx;
+        }
     }
 
     void Update()
@@ -124,6 +154,123 @@ public class GroundDragon : BossController
         if (attackId == 1 && cdJump <= 0f) yield return JumpHost();
         else if (cdScratch <= 0f) yield return ScratchHost();
         else yield return null;
+    }
+
+    // ---------------- Net event handlers (clients) ----------------
+    void OnNetStartAttack(int attackId, int seed)
+    {
+        if (IsHost || !fightActive) return; // host already runs authoritative version
+        StartCoroutine(RunAttackClient(attackId, seed));
+    }
+
+    void OnNetImpactVfx(Vector3 pos)
+    {
+        if (IsHost) return;
+        _pendingJumpDest = pos;
+        _havePendingJumpDest = true;
+        // Debug.Log($"[GroundDragon] Client received jump target: {_pendingJumpDest}");
+    }
+
+    IEnumerator RunAttackClient(int attackId, int seed)
+    {
+        // Mirror visuals only, no damage
+        var crng = new System.Random(seed);
+
+        if (attackId == 0)
+        {
+            // SCRATCH mirror
+            var t = ClosestPlayer();
+
+            float w = Mathf.Max(0.1f, scratchWindup / Mathf.Max(0.1f, difficultyScale));
+            float e = 0f; while (e < w) { e += Time.deltaTime; if (t) FaceTowards(t, Time.deltaTime); yield return null; }
+
+            int variant = crng.Next(0, 2);
+            anim.SetInteger(AttackVarID, variant);
+            anim.ResetTrigger(AttackTrigID);
+            anim.SetTrigger(AttackTrigID);
+
+            // small lunge purely visual
+            float dur = 0.22f;
+            float u = 0; while (u < dur) { u += Time.deltaTime; cc.Move(transform.forward * (scratchLungeDist / dur) * Time.deltaTime); yield return null; }
+        }
+        else if (attackId == 1)
+        {
+            // JUMP mirror
+            // Wait until host has sent the landing position
+            float wait = 0.5f;
+            while (!_havePendingJumpDest && (wait > 0f)) { wait -= Time.deltaTime; yield return null; }
+            Vector3 landCenter = _havePendingJumpDest ? _pendingJumpDest : transform.position + transform.forward * 6f;
+            _havePendingJumpDest = false;
+
+            // Compute final landing transform position accounting for CharacterController
+            float centerY = cc != null ? cc.center.y : 0f;
+            float halfHeight = cc != null ? cc.height * 0.5f : 0f;
+            float finalY = landCenter.y - centerY + halfHeight;
+            Vector3 finalLandingPos = new Vector3(landCenter.x, finalY, landCenter.z);
+
+            // Telegraph at landing
+            GameObject tele = null;
+            if (telegraphPrefab)
+            {
+                tele = Object.Instantiate(telegraphPrefab, landCenter, telegraphPrefab.transform.rotation);
+                tele.transform.localScale = new Vector3(jumpRadius * 2f, 1f, jumpRadius * 2f);
+            }
+
+            // Trigger jump anim
+            anim.ResetTrigger(JumpTrigID);
+            anim.SetTrigger(JumpTrigID);
+
+            float w = Mathf.Max(0.2f, jumpWindup / Mathf.Max(0.1f, difficultyScale));
+            float e = 0f; var t = ClosestPlayer();
+            while (e < w) { e += Time.deltaTime; if (t) FaceTowards(t, Time.deltaTime); yield return null; }
+
+            anim.CrossFade(FlyGlideHash, glideBlend, 0, 0f);
+            anim.SetBool(InAirID, true);
+
+            Vector3 from = transform.position;
+            Vector3 to = finalLandingPos;
+            float time = Mathf.Max(0.2f, jumpTravel / Mathf.Max(0.1f, difficultyScale));
+            float x = 0f;
+            while (x < 1f)
+            {
+                x += Time.deltaTime / time;
+                float yOff = jumpArcHeight * 4f * (x - x * x);
+                Vector3 pos = Vector3.Lerp(from, to, Mathf.Clamp01(x));
+                pos.y += yOff;
+                cc.enabled = false; transform.position = pos; cc.enabled = true;
+                yield return null;
+            }
+
+            cc.enabled = false; transform.position = to; cc.enabled = true;
+
+            anim.SetBool(InAirID, false);
+            anim.CrossFade(LandHash, landBlend, 0, 0f);
+
+            if (tele) Object.Destroy(tele);
+
+            // Visual ring (no damage)
+            if (shockRingPrefab)
+            {
+                var ring = Object.Instantiate(shockRingPrefab, landCenter, shockRingPrefab.transform.rotation)
+                           .GetComponent<ExpandingRing>();
+                if (ring)
+                {
+                    ring.hitMask = playerMask;
+                    ring.damage = 0f;
+                    ring.speed *= difficultyScale;
+                    ring.thickness = 2.5f;
+                    ring.lifetime = 3.5f;
+                    ring.authoritative = false;
+                }
+            }
+
+            yield return new WaitForSeconds(Mathf.Max(0.05f, landHold));
+            anim.CrossFade(IdleHash, 0.06f, 0, 0f);
+        }
+        else
+        {
+            yield return null;
+        }
     }
 
     // ---------------- Helpers ----------------
@@ -238,10 +385,13 @@ public class GroundDragon : BossController
             }
         }
 
+        // Inform clients of the landing center so they can mirror the jump
+        if (net != null)
+        {
+            net.BroadcastImpact(lastJumpDest);
+        }
+
         // compute final transform target that accounts for CharacterController center and height
-        // We need transform.position such that capsule bottom sits at lastJumpDest.y:
-        // transformY + cc.center.y - cc.height*0.5f == lastJumpDest.y
-        // => transformY = lastJumpDest.y - cc.center.y + cc.height*0.5f
         float centerY = cc != null ? cc.center.y : 0f;
         float halfHeight = cc != null ? cc.height * 0.5f : 0f;
         float finalY = lastJumpDest.y - centerY + halfHeight;

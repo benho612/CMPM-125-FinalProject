@@ -155,6 +155,7 @@ GameObject:
   - component: {fileID: 2328089975979974119}
   - component: {fileID: -3878630520821748629}
   - component: {fileID: -7190422583735680621}
+  - component: {fileID: 5530443039152052551}
   m_Layer: 6
   m_Name: Player
   m_TagString: Player
@@ -387,3 +388,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: feff78967984444419f767f45a4af7ac, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerStun
+--- !u!114 &5530443039152052551
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7536357155691039893}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e596a6587d4763a4bbcb3f89a2017d9d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AvatarSceneSpawn
