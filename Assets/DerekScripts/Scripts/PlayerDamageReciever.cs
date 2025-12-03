@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using UnityEngine;
 
 /// <summary>
@@ -13,6 +13,7 @@ public class PlayerDamageReceiver : MonoBehaviour
     public float maxHp = 100f;
     public float hp = 100f;
     public Action OnDeath;
+    public Action<float, float> OnHealthChanged; // (current, max)
 
     [Header("Blocking / Defence")]
     [Tooltip("Damage multiplier while defending (0.3 = 30% of incoming).")]
@@ -51,6 +52,9 @@ public class PlayerDamageReceiver : MonoBehaviour
 
         if (maxHp <= 0f) maxHp = 100f;
         hp = maxHp;
+
+        OnHealthChanged?.Invoke(hp, maxHp);
+        Debug.Log($"[PlayerDamageReceiver] Awake: hp={hp:0}/{maxHp:0} on '{name}'.");
     }
 
     void Update()
@@ -75,7 +79,7 @@ public class PlayerDamageReceiver : MonoBehaviour
     }
 
     /// <summary>
-    /// Called by enemies (e.g., GroundDragon) when this player takes damage.
+    /// Apply damage that can be blocked (e.g., fireballs).
     /// </summary>
     public void ApplyDamage(float amount)
     {
@@ -89,12 +93,12 @@ public class PlayerDamageReceiver : MonoBehaviour
             isDefendingNow = _warriorCombat.IsDefending;
         }
 
-        float finalDamage = amount;
+        float finalDamage = Mathf.Max(0f, amount);
 
         if (isDefendingNow)
         {
-            // Blocked: reduced damage & defend hit animation
             finalDamage *= defendedDamageMultiplier;
+            Debug.Log($"[PlayerDamageReceiver] Blocked damage on '{name}': incoming={amount:0.##} final={finalDamage:0.##} (mult={defendedDamageMultiplier:0.##}).");
 
             if (_animator != null)
             {
@@ -104,7 +108,7 @@ public class PlayerDamageReceiver : MonoBehaviour
         }
         else
         {
-            // Normal hit
+            Debug.Log($"[PlayerDamageReceiver] Normal damage on '{name}': incoming={amount:0.##}.");
             if (_animator != null)
             {
                 _animator.ResetTrigger(_defendHitHash);
@@ -112,15 +116,47 @@ public class PlayerDamageReceiver : MonoBehaviour
             }
         }
 
-        hp -= finalDamage;
+        float before = hp;
+        hp = Mathf.Clamp(hp - finalDamage, 0f, maxHp);
+        OnHealthChanged?.Invoke(hp, maxHp);
+        Debug.Log($"[PlayerDamageReceiver] HP change on '{name}': {before:0.##} -> {hp:0.##} (−{before - hp:0.##}).");
 
         if (hp <= 0f)
         {
             _dead = true;
             OnDeath?.Invoke();
-            _respawnTimer = 10f; // adjust as needed
+            _respawnTimer = 10f;
+            Debug.Log($"[PlayerDamageReceiver] '{name}' died.");
+        }
+    }
 
-            // TODO: trigger death animation / disable movement here if desired
+    /// <summary>
+    /// Apply damage that ignores blocking (e.g., vents). Always full amount.
+    /// </summary>
+    public void ApplyUnblockableDamage(float amount)
+    {
+        if (_dead) return;
+
+        float finalDamage = Mathf.Max(0f, amount);
+        Debug.Log($"[PlayerDamageReceiver] Unblockable damage on '{name}': incoming={amount:0.##}.");
+
+        if (_animator != null)
+        {
+            _animator.ResetTrigger(_defendHitHash);
+            _animator.SetTrigger(_normalHitHash);
+        }
+
+        float before = hp;
+        hp = Mathf.Clamp(hp - finalDamage, 0f, maxHp);
+        OnHealthChanged?.Invoke(hp, maxHp);
+        Debug.Log($"[PlayerDamageReceiver] HP change on '{name}': {before:0.##} -> {hp:0.##} (−{before - hp:0.##}).");
+
+        if (hp <= 0f)
+        {
+            _dead = true;
+            OnDeath?.Invoke();
+            _respawnTimer = 10f;
+            Debug.Log($"[PlayerDamageReceiver] '{name}' died.");
         }
     }
 
@@ -129,8 +165,8 @@ public class PlayerDamageReceiver : MonoBehaviour
     {
         _dead = false;
         hp = maxHp;
-
-        // TODO: teleport to spawn, reset animations & state as needed
+        OnHealthChanged?.Invoke(hp, maxHp);
+        Debug.Log($"[PlayerDamageReceiver] Respawn '{name}': hp reset to {hp:0}/{maxHp:0}.");
     }
 
     /// <summary>
