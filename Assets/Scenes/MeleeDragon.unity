@@ -551,10 +551,10 @@ MonoBehaviour:
   multiplayer: {fileID: 87141348}
   boss: {fileID: 1133367273}
   camRig: {fileID: 2001901417}
+  bossController: {fileID: 1133367269}
   duration: 5
   radius: 10
   height: 3
-  bossController: {fileID: 1133367269}
 --- !u!4 &472495387
 Transform:
   m_ObjectHideFlags: 0
@@ -761,14 +761,6 @@ PrefabInstance:
       propertyPath: m_Name
       value: Purple
       objectReference: {fileID: 0}
-    - target: {fileID: 174418, guid: 36c38a65d57de7d4a9a582f9ee857701, type: 3}
-      propertyPath: m_IsActive
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 174418, guid: 36c38a65d57de7d4a9a582f9ee857701, type: 3}
-      propertyPath: m_TagString
-      value: Enemy
-      objectReference: {fileID: 0}
     - target: {fileID: 489222, guid: 36c38a65d57de7d4a9a582f9ee857701, type: 3}
       propertyPath: m_LocalPosition.x
       value: -1.9033976
@@ -809,144 +801,30 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 9590000, guid: 36c38a65d57de7d4a9a582f9ee857701, type: 3}
-      propertyPath: m_ApplyRootMotion
-      value: 0
-      objectReference: {fileID: 0}
+    - target: {fileID: 1329298000187708653, guid: 36c38a65d57de7d4a9a582f9ee857701, type: 3}
+      propertyPath: Multiplayer
+      value: 
+      objectReference: {fileID: 87141348}
+    - target: {fileID: 2416181773777688421, guid: 36c38a65d57de7d4a9a582f9ee857701, type: 3}
+      propertyPath: multiplayer
+      value: 
+      objectReference: {fileID: 87141348}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 174418, guid: 36c38a65d57de7d4a9a582f9ee857701, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 1133367272}
-    - targetCorrespondingSourceObject: {fileID: 174418, guid: 36c38a65d57de7d4a9a582f9ee857701, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 1133367271}
-    - targetCorrespondingSourceObject: {fileID: 174418, guid: 36c38a65d57de7d4a9a582f9ee857701, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 1133367270}
-    - targetCorrespondingSourceObject: {fileID: 174418, guid: 36c38a65d57de7d4a9a582f9ee857701, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 1133367269}
+    m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 36c38a65d57de7d4a9a582f9ee857701, type: 3}
---- !u!1 &1133367268 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 174418, guid: 36c38a65d57de7d4a9a582f9ee857701, type: 3}
+--- !u!114 &1133367269 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 2416181773777688421, guid: 36c38a65d57de7d4a9a582f9ee857701, type: 3}
   m_PrefabInstance: {fileID: 1133367267}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &1133367269
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1133367268}
+  m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 72942c79f8c8f404ca1579501981006a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GroundDragon
-  multiplayer: {fileID: 87141348}
-  attackCadence: 2.5
-  baseSeed: 1337
-  difficultyScale: 1
-  playOfflineIfNoRoom: 1
-  playerMask:
-    serializedVersion: 2
-    m_Bits: 64
-  shockRingPrefab: {fileID: 8243893157018490596, guid: 722e4d78d58cc094b875cad610499f94, type: 3}
-  telegraphPrefab: {fileID: 3158827007342395201, guid: 28e9241b214205d4aab07f309dd3e78a, type: 3}
-  moveSpeed: 3.6
-  stopDistance: 3
-  turnSpeedDeg: 360
-  scratchDamage: 18
-  scratchRange: 2.6
-  scratchArcDeg: 90
-  scratchWindup: 0.25
-  scratchLungeDist: 1.2
-  scratchCooldown: 2
-  jumpDamage: 40
-  jumpRadius: 8
-  jumpWindup: 0.8
-  jumpTravel: 0.55
-  jumpArcHeight: 3.5
-  jumpCooldown: 10
-  slowMultiplier: 0.6
-  slowDuration: 2.5
-  glideBlend: 0.05
-  landBlend: 0.05
-  landHold: 0.2
---- !u!143 &1133367270
-CharacterController:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1133367268}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Height: 4
-  m_Radius: 2
-  m_SlopeLimit: 45
-  m_StepOffset: 0.3
-  m_SkinWidth: 0.08
-  m_MinMoveDistance: 0.001
-  m_Center: {x: 0, y: 2, z: 0}
---- !u!114 &1133367271
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1133367268}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9aac51d073718224f9123eee043238e1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::BossHealth
-  maxHp: 1000
-  net: {fileID: 1133367272}
---- !u!114 &1133367272
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1133367268}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2c05832896dfec3438363931999c4fea, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::BossNetSync
-  Multiplayer: {fileID: 87141348}
-  _uidString: 5be7e1b0-7cae-44f2-a314-ab0704b574a6
-  BucketBehaviors:
-  - Name: Min
-    NetLOD: 0
-    Frequency: -1
-  - Name: Low
-    NetLOD: 1
-    Frequency: 0
-  - Name: Mid
-    NetLOD: 2
-    Frequency: 0
-  - Name: High
-    NetLOD: 3
-    Frequency: 0
-  - Name: Max
-    NetLOD: 4
-    Frequency: 120
-  Reliability: 2
 --- !u!4 &1133367273 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 489222, guid: 36c38a65d57de7d4a9a582f9ee857701, type: 3}

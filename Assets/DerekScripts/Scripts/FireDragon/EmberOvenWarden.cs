@@ -65,10 +65,35 @@ public class EmberOvenWarden : BossController
         if (!net) net = GetComponent<BossNetSync>();
         if (net) net.warden = this;
 
+        // Update visuals from health sync and death
+        health = GetComponent<BossHealth>();
+        if (health != null)
+        {
+            health.OnDeath += () =>
+            {
+                // Host triggers die animation; clients will mirror via health sync == 0
+                PlayDie();
+            };
+        }
+        if (net != null)
+        {
+            net.OnHealthSync += (norm) =>
+            {
+                if (norm <= 0f)
+                {
+                    PlayDie();
+                }
+            };
+        }
+
         AutoPopulateVentPoints();
         _targetYaw = transform.eulerAngles.y;
 
         Debug.Log($"[Warden] Awake. ventPoints={(ventPoints != null ? ventPoints.Length : 0)}");
+
+        // Diagnostic: host sends a single test RPC to confirm delivery to clients
+        if (IsHost && net != null)
+            StartCoroutine(TestRPCOnce());
     }
 
     private void OnValidate()
@@ -107,6 +132,13 @@ public class EmberOvenWarden : BossController
         _targetYaw = yaw;
         if (!IsHost && Mathf.Abs(Mathf.DeltaAngle(transform.eulerAngles.y, yaw)) > 45f)
             transform.eulerAngles = new Vector3(transform.eulerAngles.x, yaw, transform.eulerAngles.z);
+    }
+
+    IEnumerator TestRPCOnce()
+    {
+        yield return new WaitForSeconds(1f);
+        Debug.Log("[Warden] Sending net test RPC (42)");
+        net.BroadcastTest(42);
     }
 
     // ---------- BossController hooks ----------
@@ -160,7 +192,11 @@ public class EmberOvenWarden : BossController
 
     public void LocalSpawnFireball(Vector3 start, Vector3 dest, float speedScale)
     {
-        if (!fireballPrefab) return;
+        if (!fireballPrefab)
+        {
+            Debug.LogWarning("[Warden] LocalSpawnFireball called but fireballPrefab is NOT assigned on this instance.");
+            return;
+        }
 
         var go = Instantiate(fireballPrefab);
         go.transform.position = start;
@@ -229,7 +265,11 @@ public class EmberOvenWarden : BossController
 
     public void LocalSpawnVent(Vector3 pos, float scale)
     {
-        if (!ventPrefab) return;
+        if (!ventPrefab)
+        {
+            Debug.LogWarning("[Warden] LocalSpawnVent called but ventPrefab is NOT assigned on this instance.");
+            return;
+        }
 
         var v = Instantiate(ventPrefab, pos, ventPrefab.transform.rotation);
         Debug.Log($"[Warden] LocalSpawnVent pos={pos} scale={scale:0.00}");
@@ -334,5 +374,14 @@ public class EmberOvenWarden : BossController
             FaceTowards(t, Time.deltaTime);
             yield return null;
         }
+    }
+    // Add the missing PlayDie method to resolve the CS0103 error.
+    private void PlayDie()
+    {
+        if (_anim != null)
+        {
+            _anim.SetTrigger("Die"); // Assuming "Die" is the trigger for the death animation.
+        }
+        Debug.Log("[Warden] PlayDie called. Triggering death animation.");
     }
 }

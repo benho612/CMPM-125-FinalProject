@@ -11,7 +11,6 @@ public abstract class BossController : MonoBehaviour
     public float attackCadence = 2.5f;     // seconds between attacks
     public int baseSeed = 1337;            // per-run seed (set on scene load)
     [Range(0.5f, 5f)] public float difficultyScale = 1f;
-    [SerializeField] bool playOfflineIfNoRoom = true;
 
     protected BossNetSync net;
     protected BossHealth health;
@@ -25,9 +24,6 @@ public abstract class BossController : MonoBehaviour
         get
         {
             var mp = multiplayer;
-            // Offline / not in room: allow host-only logic if playOfflineIfNoRoom
-            if (mp == null || !mp.InRoom)
-                return playOfflineIfNoRoom;
 
             // Prefer Me if available; fall back to GetUser
             Alteruna.User me = null;
@@ -37,8 +33,6 @@ public abstract class BossController : MonoBehaviour
                 try { me = mp.GetUser(); } catch { /* older SDKs */ }
             }
 
-            if (me == null)
-                return playOfflineIfNoRoom;
 
             // Alteruna host is index 0 or me.IsHost (depending on SDK)
             bool isHost = false;

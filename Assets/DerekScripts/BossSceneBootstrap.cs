@@ -43,7 +43,6 @@ public class BossSceneBootstrap : MonoBehaviour
             yield break;
         }
 
-        // Start the fight
         var bc = bossGo.GetComponent<BossController>();
         if (bc == null)
         {
@@ -51,8 +50,32 @@ public class BossSceneBootstrap : MonoBehaviour
             yield break;
         }
 
+        // Wait for client-ready handshake from spawned clients (with a timeout)
+        var net = bossGo.GetComponent<BossNetSync>();
+        float timeout = 8f; // increased to give clients and network a little more time
+        float elapsed = 0f;
+        int need = Mathf.Max(0, expectedPlayers - 1); // clients expected to report (exclude host)
+        Debug.Log($"[BossBootstrap] Spawned boss; waiting for up to {timeout:0.0}s for {need} client ready(s).");
+        while (elapsed < timeout && (net == null || net.ClientsReadyCount < need))
+        {
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        if (net == null)
+            Debug.LogWarning("[BossBootstrap] BossNetSync missing on spawned boss; proceeding anyway.");
+        else if (net.ClientsReadyCount < need)
+            Debug.LogWarning($"[BossBootstrap] Timeout waiting for client ready(s). Received={net.ClientsReadyCount}, Expected={need}");
+
+        // Diagnostic: broadcast a test RPC now that clients reported ready
+        if (net != null)
+        {
+            Debug.Log("[BossBootstrap] Sending diagnostic BroadcastTest(42) from host to spawned boss net.");
+            net.BroadcastTest(42);
+        }
+
         int seed = Random.Range(0, int.MaxValue);
-        Debug.Log($"[BossBootstrap] Spawning boss and starting fight; seed={seed}");
+        Debug.Log($"[BossBootstrap] Starting fight; seed={seed}");
         bc.StartFight(seed);
     }
 }
