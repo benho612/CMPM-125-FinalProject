@@ -4706,10 +4706,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b894188da58112141a042bba848c1e9f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
+  spawner: {fileID: 0}
   bossPrefabIndex: 0
-  bossSpawn: {fileID: 1678692484}
-  spawnDelay: 1.5
-  fightSeed: -1
+  bossSpawnPoint: {fileID: 0}
+  expectedPlayers: 2
+  maxWaitSeconds: 10
+  startFightDelay: 0.75
+  runTestRpcBurst: 1
 --- !u!4 &1315769904
 Transform:
   m_ObjectHideFlags: 0
@@ -5342,7 +5345,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!54 &1544955740
 Rigidbody:
   m_ObjectHideFlags: 0
