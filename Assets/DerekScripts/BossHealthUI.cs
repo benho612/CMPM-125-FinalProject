@@ -5,63 +5,80 @@ public class BossHealthUI : MonoBehaviour
 {
     [SerializeField] private BossHealth boss;
     [SerializeField] private Slider slider;
-    [SerializeField] private CanvasGroup group;
-    [SerializeField] private float fadeSpeed = 6f;
+
+    private bool _subscribed;
 
     void Awake()
     {
-        // Auto-find the active BossHealth if not assigned
-        if (boss == null)
-            boss = FindObjectOfType<BossHealth>();
+        if (slider == null)
+            slider = GetComponentInChildren<Slider>();
 
-        // Initialize slider if boss is already present
-        if (boss != null && slider != null)
+        if (slider != null)
         {
             slider.minValue = 0f;
-            slider.maxValue = boss.HP; // will be overwritten on first OnHealthChanged
-            slider.value = boss.HP;
+            slider.maxValue = 1f;
+            slider.value = 0f;
         }
-
-        if (!group) group = GetComponent<CanvasGroup>();
-        if (group) group.alpha = 0f;
     }
 
     void OnEnable()
     {
-        if (boss != null)
-        {
-            boss.OnHealthChanged += HandleHealthChanged;
-            boss.OnDeath += HandleDeath;
-        }
+        // Start polling until BossHealth is found and subscribed
+        if (!_subscribed)
+            StartCoroutine(FindAndSubscribeBossRoutine());
     }
 
     void OnDisable()
     {
-        if (boss != null)
+        if (_subscribed && boss != null)
         {
             boss.OnHealthChanged -= HandleHealthChanged;
             boss.OnDeath -= HandleDeath;
+            _subscribed = false;
+        }
+    }
+
+    System.Collections.IEnumerator FindAndSubscribeBossRoutine()
+    {
+        // Try every 0.25s until boss is found
+        var wait = new WaitForSeconds(0.25f);
+        while (boss == null)
+        {
+            boss = FindObjectOfType<BossHealth>();
+            if (boss == null)
+            {
+                Debug.Log("[BossHealthUI] Waiting for BossHealth...");
+                yield return wait;
+                continue;
+            }
+        }
+
+        boss.OnHealthChanged += HandleHealthChanged;
+        boss.OnDeath += HandleDeath;
+        _subscribed = true;
+        Debug.Log($"[BossHealthUI] Subscribed to BossHealth: {boss.name}");
+
+        // Initialize slider to current percentage
+        if (slider != null)
+        {
+            float pct = Mathf.Clamp01(boss.HP / 1000f);
+            slider.value = pct;
+            Debug.Log($"[BossHealthUI] Init slider pct={pct:P0}");
         }
     }
 
     void HandleHealthChanged(float current, float max)
     {
-        if (slider != null)
-        {
-            slider.minValue = 0f;
-            slider.maxValue = max;
-            slider.value = current;
-        }
-
-        // Fade in when boss takes damage / is active
-        if (group) group.alpha = Mathf.MoveTowards(group.alpha, 1f, Time.deltaTime * fadeSpeed);
+        if (slider == null) return;
+        float pct = max > 0f ? Mathf.Clamp01(current / max) : 0f;
+        slider.value = pct;
+        Debug.Log($"[BossHealthUI] HealthChanged: {current:0}/{max:0} ({pct:P0})");
     }
 
     void HandleDeath()
     {
-        // No fade-out; leave UI as-is or let external logic hide it if desired.
-        // Optionally set to zero to reflect death state:
         if (slider != null)
             slider.value = 0f;
+        Debug.Log("[BossHealthUI] Boss died. Slider set to 0%.");
     }
 }

@@ -501,6 +501,7 @@ GameObject:
   - component: {fileID: 5315416028653137240}
   - component: {fileID: 7270994743112571302}
   - component: {fileID: 7092175253039691177}
+  - component: {fileID: 2964357076013635354}
   m_Layer: 0
   m_Name: Red
   m_TagString: Enemy
@@ -579,8 +580,11 @@ MonoBehaviour:
     NetLOD: 4
     Frequency: 120
   Reliability: 2
-  bossController: {fileID: 0}
   warden: {fileID: 7092175253039691177}
+  bossAnimator: {fileID: 0}
+  health: {fileID: 0}
+  resendCount: 3
+  resendInterval: 0.12
 --- !u!114 &7270994743112571302
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -595,6 +599,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BossHealth
   maxHp: 1000
   net: {fileID: 5315416028653137240}
+  bossAnimator: {fileID: 0}
+  deathDelaySeconds: 10
+  returnSceneName: Kitchen
 --- !u!114 &7092175253039691177
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -634,6 +641,27 @@ MonoBehaviour:
   ventPointsParentName: VentLocations
   limitVentPoints: 32
   _anim: {fileID: 0}
+--- !u!65 &2964357076013635354
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 130416}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 3.2, y: 3.65, z: 6.69}
+  m_Center: {x: 0, y: 1.84, z: 0}
 --- !u!1 &133440
 GameObject:
   m_ObjectHideFlags: 0

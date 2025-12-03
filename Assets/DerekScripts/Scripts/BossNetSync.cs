@@ -10,6 +10,7 @@ public class BossNetSync : Synchronizable
     [Header("Optional references (auto-found if missing)")]
     public EmberOvenWarden warden;
     [SerializeField] private Animator bossAnimator;
+    [SerializeField] private BossHealth health;
 
     [Header("RPC resend safety")]
     [SerializeField] private int resendCount = 3;
@@ -18,7 +19,6 @@ public class BossNetSync : Synchronizable
     // Client-side yaw smoothing
     public float LastReceivedYaw { get; private set; }
 
-    // Dedup so resends don’t duplicate effects on clients
     private readonly HashSet<int> seen = new HashSet<int>();
     private readonly Queue<int> seenQueue = new Queue<int>();
     private const int SeenCap = 256;
@@ -33,7 +33,6 @@ public class BossNetSync : Synchronizable
         return seqCounter;
     }
 
-    // ---- runtime-chosen sender ----
     private Func<string, object[], bool> _sendRemote; // returns true if actually sent
     private string _sendRemoteName = "NONE";
 
@@ -43,6 +42,7 @@ public class BossNetSync : Synchronizable
 
         if (warden == null) warden = GetComponent<EmberOvenWarden>();
         if (bossAnimator == null) bossAnimator = GetComponentInChildren<Animator>();
+        if (health == null) health = GetComponent<BossHealth>();
 
         LastReceivedYaw = transform.eulerAngles.y;
 
@@ -51,21 +51,26 @@ public class BossNetSync : Synchronizable
         Debug.Log($"[BossNetSync] Awake on {(IsHost() ? "HOST" : "CLIENT")} (Object='{name}'), Sender={_sendRemoteName}.");
     }
 
+    private void Start()
+    {
+        if (IsHost() && health != null)
+        {
+            SendRemote(nameof(RPC_Health), health.HP, health.MaxHP);
+            StartCoroutine(ResendHealth(health.HP, health.MaxHP));
+        }
+    }
+
     private bool IsHost()
     {
         if (multiplayer == null) multiplayer = FindObjectOfType<Multiplayer>();
         return multiplayer != null && multiplayer.Me != null && multiplayer.Me.IsHost;
     }
+
     private void Update()
     {
-        // Required for Synchronizable to send/receive commits + remote methods.
         base.SyncUpdate();
     }
-    /// <summary>
-    /// Alteruna API differs across versions. We detect the correct method (public or non-public):
-    /// - InvokeRemoteMethod(string, object[])
-    /// - BroadcastRemoteMethod(string, object[])
-    /// </summary>
+
     private void InitRemoteSender()
     {
         var flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
@@ -79,7 +84,6 @@ public class BossNetSync : Synchronizable
                 if (p.Length == 2 && p[0].ParameterType == typeof(string) && p[1].ParameterType == typeof(object[]))
                     return m;
             }
-            // Also check base type (Synchronizable)
             var bt = typeof(Synchronizable);
             return bt.GetMethod(name, flags, null, new[] { typeof(string), typeof(object[]) }, null);
         }
@@ -123,14 +127,91 @@ public class BossNetSync : Synchronizable
     }
 
     // -------------------------
-    // Broadcast helpers (HOST only)
+    // Host-authoritative health and damage
+    // -------------------------
+
+    public void RequestDamage(float amount)
+    {
+        if (IsHost())
+        {
+            RPC_RequestDamage(amount);
+        }
+        else
+        {
+            SendRemote(nameof(RPC_RequestDamage), amount);
+        }
+    }
+
+    [SynchronizableMethod]
+    public void RPC_RequestDamage(float amount)
+    {
+        if (!IsHost()) return;
+
+        if (health == null) health = GetComponent<BossHealth>();
+        if (health == null) return;
+
+        float before = health.HP;
+        health.Damage(amount);
+        Debug.Log($"[BossNetSync] Host applied damage={amount:0}. HP {before:0} -> {health.HP:0}");
+
+        SendRemote(nameof(RPC_Health), health.HP, health.MaxHP);
+        StartCoroutine(ResendHealth(health.HP, health.MaxHP));
+    }
+
+    private IEnumerator ResendHealth(float current, float max)
+    {
+        for (int i = 0; i < resendCount; i++)
+        {
+            yield return new WaitForSeconds(resendInterval);
+            if (!IsHost()) yield break;
+            SendRemote(nameof(RPC_Health), current, max);
+        }
+    }
+
+    [SynchronizableMethod]
+    public void RPC_Health(float current, float max)
+    {
+        if (health == null) health = GetComponent<BossHealth>();
+        if (health == null) return;
+
+        health.SetFromNetwork(current, max);
+        Debug.Log($"[BossNetSync] RPC_Health {(IsHost() ? "(LOCAL)" : "(REMOTE)")} -> {current:0}/{max:0}");
+    }
+
+    // -------------------------
+    // Scene load RPC (similar to ScenePortal)
+    // -------------------------
+
+    public void BroadcastLoadSceneAfterDelay(string sceneName, float delaySeconds)
+    {
+        if (!IsHost()) return;
+        StartCoroutine(DelayAndBroadcastLoadScene(sceneName, delaySeconds));
+    }
+
+    private IEnumerator DelayAndBroadcastLoadScene(string sceneName, float delaySeconds)
+    {
+        Debug.Log($"[BossNetSync] Scheduling scene load '{sceneName}' in {delaySeconds:0.##}s.");
+        yield return new WaitForSeconds(Mathf.Max(0f, delaySeconds));
+        SendRemote(nameof(RPC_LoadScene), sceneName);
+        RPC_LoadScene(sceneName); // host local
+    }
+
+    [SynchronizableMethod]
+    public void RPC_LoadScene(string sceneName)
+    {
+        Debug.Log($"[BossNetSync] RPC_LoadScene -> '{sceneName}'");
+        Multiplayer?.LoadScene(sceneName, true); // moves avatars with the scene
+    }
+
+    // -------------------------
+    // Existing broadcast helpers (HOST only)
     // -------------------------
 
     public void BroadcastPhase(int phase)
     {
         if (!IsHost()) return;
         SendRemote(nameof(RPC_Phase), phase);
-        RPC_Phase(phase); // local host (marked LOCAL in log)
+        RPC_Phase(phase);
     }
 
     public void BroadcastStartAttack(int attackId, int seed)
@@ -216,10 +297,6 @@ public class BossNetSync : Synchronizable
         }
     }
 
-    // -------------------------
-    // RPC HANDLERS (make PUBLIC)
-    // -------------------------
-
     [SynchronizableMethod]
     public void RPC_Phase(int phase)
     {
@@ -290,7 +367,6 @@ public class BossNetSync : Synchronizable
         return false;
     }
 
-    // no state replication needed for this object
     public override void AssembleData(Writer writer, byte LOD = MAX_LOD) { }
     public override void DisassembleData(Reader reader, byte LOD = MAX_LOD) { }
 }

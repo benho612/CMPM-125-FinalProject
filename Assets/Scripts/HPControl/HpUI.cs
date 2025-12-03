@@ -1,13 +1,12 @@
 using UnityEngine;
 using UnityEngine.UI;
 using System.Collections;
-using System.Collections.Generic;
 
 public class HpUI : MonoBehaviour
 {
-
     [SerializeField] private RectTransform _hpFillRect;
     [SerializeField] private RectTransform _hpEffectRectPrefab;
+
     private Image _hpFillImage;
     private Animator _animator;
     private float _maxWidth;
@@ -17,14 +16,17 @@ public class HpUI : MonoBehaviour
     private float _maxHp;
     private bool _isDead;
 
+    private PlayerDamageReceiver _receiver;
+    private bool _subscribed;
+
     private void Awake()
     {
+        _hpFillImage = _hpFillRect.GetComponent<Image>();
+        _animator = GetComponent<Animator>();
+
+        // Default until we bind to the player
         _maxHp = 100f;
         _hp = _maxHp;
-
-        _hpFillImage = _hpFillRect.GetComponent<Image>();
-
-        _animator = GetComponent<Animator>();
     }
 
     private void Start()
@@ -33,55 +35,103 @@ public class HpUI : MonoBehaviour
         _preWidth = _maxWidth;
     }
 
-    // Update is called once per frame
-    private void Update()
+    private void OnEnable()
     {
-        if (Input.GetKeyDown(KeyCode.Space))
+        if (!_subscribed)
+            StartCoroutine(FindAndBindLocalPlayer());
+    }
+
+    private void OnDisable()
+    {
+        if (_receiver != null && _subscribed)
         {
-            _hp -= 10f;
-            UpdateHp();
+            _receiver.OnHealthChanged -= HandleHealthChanged;
+            _receiver.OnDeath -= HandleDeath;
+            _subscribed = false;
         }
     }
 
-    private void UpdateHp()
+    private IEnumerator FindAndBindLocalPlayer()
     {
-        if(_isDead)
+        var wait = new WaitForSeconds(0.25f);
+        while (_receiver == null)
         {
-            return;
+            // Prefer local player's receiver if Alteruna is present
+            var receivers = FindObjectsOfType<PlayerDamageReceiver>(true);
+            PlayerDamageReceiver candidate = null;
+
+            foreach (var r in receivers)
+            {
+                var avatar = r.GetComponent<Alteruna.Avatar>();
+                if (avatar != null && avatar.IsMe)
+                {
+                    candidate = r;
+                    break;
+                }
+            }
+
+            if (candidate == null && receivers.Length == 1)
+                candidate = receivers[0]; // single-player fallback
+
+            if (candidate == null)
+            {
+                yield return wait;
+                continue;
+            }
+
+            _receiver = candidate;
         }
 
-        _hp = Mathf.Clamp(_hp, 0, _maxHp);
+        _receiver.OnHealthChanged += HandleHealthChanged;
+        _receiver.OnDeath += HandleDeath;
+        _subscribed = true;
 
-        if (_hp == 0)
-        {
-            _isDead = true;
-        }
+        // Initialize UI to current values
+        HandleHealthChanged(_receiver.hp, _receiver.maxHp);
+    }
 
+    // Called whenever HP changes
+    private void HandleHealthChanged(float current, float max)
+    {
+        _maxHp = max;
+        float prevHp = _hp;
+        _hp = Mathf.Clamp(current, 0f, _maxHp);
 
-        float fillAmount = _hp / _maxHp;
+        if (_isDead && _hp > 0f) _isDead = false;
+
+        float fillAmount = _maxHp > 0f ? _hp / _maxHp : 0f;
         float newWidth = _maxWidth * fillAmount;
-        float deltaWidth = _preWidth - newWidth;
+        float deltaWidth = Mathf.Max(0f, _preWidth - newWidth);
 
+        // Resize bar
         _hpFillRect.sizeDelta = new Vector2(newWidth, _hpFillRect.sizeDelta.y);
         _preWidth = newWidth;
 
+        // Color from green->red
         _hpFillImage.color = Color.Lerp(Color.red, Color.green, fillAmount);
 
-        Vector3 rightEdgeLocalPosition = new Vector3(_hpFillRect.sizeDelta.x, 0, 0);
-        Vector3 rightEdgeWorldPosition = _hpFillRect.TransformPoint(rightEdgeLocalPosition);
-        RectTransform effectRect = Instantiate(_hpEffectRectPrefab, transform);
-        effectRect.position = rightEdgeWorldPosition;
+        // Spawn trailing effect for lost HP
+        if (deltaWidth > 0.01f)
+        {
+            Vector3 rightEdgeLocalPosition = new Vector3(_hpFillRect.sizeDelta.x, 0, 0);
+            Vector3 rightEdgeWorldPosition = _hpFillRect.TransformPoint(rightEdgeLocalPosition);
+            RectTransform effectRect = Instantiate(_hpEffectRectPrefab, transform);
+            effectRect.position = rightEdgeWorldPosition;
 
-        effectRect.sizeDelta = new Vector2(deltaWidth, _hpFillRect.sizeDelta.y);
-        effectRect.gameObject.SetActive(true);
+            effectRect.sizeDelta = new Vector2(deltaWidth, _hpFillRect.sizeDelta.y);
+            effectRect.gameObject.SetActive(true);
 
-        effectRect.GetComponentInChildren<Image>().color = _hpFillImage.color;
+            var img = effectRect.GetComponentInChildren<Image>();
+            if (img != null) img.color = _hpFillImage.color;
 
-        _animator.Play("HealthBarInjured", -1, 0f);
-
-
+            if (_animator != null)
+                _animator.Play("HealthBarInjured", -1, 0f);
+        }
     }
 
-
-
+    private void HandleDeath()
+    {
+        _isDead = true;
+        // Optional: animate empty bar, show death UI, etc.
+    }
 }

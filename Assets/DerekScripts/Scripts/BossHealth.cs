@@ -1,4 +1,3 @@
-// Assets/Bosses/_Shared/BossHealth.cs
 using UnityEngine;
 using System;
 
@@ -8,7 +7,15 @@ public class BossHealth : MonoBehaviour
     [SerializeField] BossNetSync net;
     [SerializeField] Animator bossAnimator;
 
+    [Header("Death sequence")]
+    [Tooltip("Seconds to wait after death before returning to Kitchen. Host will RPC load for all players.")]
+    [SerializeField] float deathDelaySeconds = 10f;
+    [Tooltip("Scene name to load after the boss dies.")]
+    [SerializeField] string returnSceneName = "KitchenScene";
+
     public float HP { get; private set; }
+    public float MaxHP => maxHp;
+
     public Action OnDeath;
     public Action<float, float> OnHealthChanged; // (current, max)
 
@@ -17,37 +24,46 @@ public class BossHealth : MonoBehaviour
         HP = maxHp;
         if (!net) net = GetComponent<BossNetSync>();
         if (!bossAnimator) bossAnimator = GetComponent<Animator>();
-        // Optionally broadcast initial health here if you add networking later
+
         OnHealthChanged?.Invoke(HP, maxHp);
     }
 
+    // Host-side local damage only (clients should call BossNetSync.RequestDamage)
     public void Damage(float amount)
     {
         if (HP <= 0f) return;
 
-        float oldHP = HP;
-        HP = Mathf.Max(0f, HP - amount);
+        float old = HP;
+        HP = Mathf.Max(0f, HP - Mathf.Max(0f, amount));
 
-        // Notify UI listeners
-        if (!Mathf.Approximately(HP, oldHP))
+        if (!Mathf.Approximately(old, HP))
             OnHealthChanged?.Invoke(HP, maxHp);
-
-        //net?.BroadcastHealth(HP / maxHp);
 
         if (HP <= 0f)
         {
-            // Play death animation (if animator exists)
-            if (bossAnimator)
-            {
-                // Assumes a "Die" state or trigger is present; adjust to your controller
-                bossAnimator.CrossFade("Die", 0.1f);
-                // Alternatively: bossAnimator.SetTrigger("Die");
-            }
-
+            if (bossAnimator) bossAnimator.CrossFade("Die", 0.1f);
             OnDeath?.Invoke();
+
+            // Host will RPC scene load to all players after delay
+            net?.BroadcastLoadSceneAfterDelay(returnSceneName, deathDelaySeconds);
         }
     }
 
-    // Optional helpers
-    //public void SetMax(float newMax) { maxHp = newMax; HP = maxHp; net?.BroadcastHealth(1f); }
+    // Applied on all peers from host replication
+    public void SetFromNetwork(float current, float max)
+    {
+        float old = HP;
+        maxHp = max;
+        HP = Mathf.Clamp(current, 0f, maxHp);
+
+        OnHealthChanged?.Invoke(HP, maxHp);
+
+        if (old > 0f && HP <= 0f)
+        {
+            if (bossAnimator) bossAnimator.CrossFade("Die", 0.1f);
+            OnDeath?.Invoke();
+
+            // Host will handle scene change broadcast; clients do nothing here.
+        }
+    }
 }

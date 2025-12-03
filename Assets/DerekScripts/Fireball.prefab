@@ -125,14 +125,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 80925285c5b23954199d99609d8773ed, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ParabolicProjectile
-  speed: 12
+  speed: 7
   arcHeight: 3
-  radius: 0.6
-  damage: 12
   lifetime: 8
+  minAirTime: 1
+  radius: 0.6
+  damage: 5
   hitMask:
     serializedVersion: 2
     m_Bits: 64
+  environmentMask:
+    serializedVersion: 2
+    m_Bits: 128
+  playerSlowRadius: 2
+  playerSlowFactor: 0.5
   authoritative: 1
 --- !u!96 &8158769819073374117
 TrailRenderer:
