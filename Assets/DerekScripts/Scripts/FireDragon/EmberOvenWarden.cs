@@ -51,23 +51,19 @@ public class EmberOvenWarden : BossController
     {
         base.Awake();
 
+        if (multiplayer == null)
+            multiplayer = FindObjectOfType<Multiplayer>();
+
         _anim = GetComponent<Animator>();
         if (_anim) _anim.applyRootMotion = false;
 
         if (net == null) net = GetComponent<BossNetSync>();
         if (net != null) net.warden = this;
 
-        if (health != null) health.OnDeath += PlayDie;
-
-        if (net != null)
-        {
-            net.OnHealthSync += (norm) => { if (norm <= 0f) PlayDie(); };
-        }
-
         AutoPopulateVentPoints();
         _lastSentYaw = transform.eulerAngles.y;
 
-        Debug.Log($"[EmberOvenWarden] Initialized on {(IsHost ? "HOST" : "CLIENT")} | Vents: {ventPoints?.Length ?? 0}");
+        Debug.Log($"[EmberOvenWarden] Awake on {(IsHost ? "HOST" : "CLIENT")} | obj='{gameObject.name}' | hasNetSync={(GetComponent<BossNetSync>() != null)}");
     }
 
     private void Update()
@@ -84,7 +80,7 @@ public class EmberOvenWarden : BossController
 
             if (deltaYaw >= YawDeltaThreshold && Time.time - _lastYawSendTime >= YawSendInterval)
             {
-                net?.BroadcastYaw(currentYaw);
+                if (net != null) net.BroadcastYaw(currentYaw);
                 _lastSentYaw = currentYaw;
                 _lastYawSendTime = Time.time;
             }
@@ -136,22 +132,18 @@ public class EmberOvenWarden : BossController
 
             yield return AimAt(target, aimWindup);
 
-            // SYNC ANIMATION
-            net?.BroadcastCrossFade(FireballHash, fireballAnimBlend);
-
+            if (net != null) net.BroadcastCrossFade(FireballHash, fireballAnimBlend);
             yield return new WaitForSeconds(fireballAnimHold);
 
             Vector3 start = muzzle.position;
             Vector3 dest = target.position;
             dest.y = start.y;
 
-            net?.BroadcastSpawnFireball(start, dest, difficultyScale);
-
+            if (net != null) net.BroadcastSpawnFireball(start, dest, difficultyScale);
             yield return new WaitForSeconds(0.35f);
         }
 
-        // SYNC ANIMATION
-        net?.BroadcastCrossFade(IdleHash, 0.1f);
+        if (net != null) net.BroadcastCrossFade(IdleHash, 0.1f);
     }
 
     public void LocalSpawnFireball(Vector3 start, Vector3 dest, float speedScale)
@@ -170,9 +162,7 @@ public class EmberOvenWarden : BossController
 
     IEnumerator FlareVentsHost()
     {
-        // SYNC ANIMATION
-        net?.BroadcastCrossFade(ScreamHash, screamBlend);
-
+        if (net != null) net.BroadcastCrossFade(ScreamHash, screamBlend);
         yield return new WaitForSeconds(screamWindup);
 
         if (ventPrefab == null) yield break;
@@ -186,14 +176,12 @@ public class EmberOvenWarden : BossController
 
             pos.y = transform.position.y;
 
-            net?.BroadcastSpawnVent(pos, difficultyScale);
+            if (net != null) net.BroadcastSpawnVent(pos, difficultyScale);
             yield return new WaitForSeconds(0.12f);
         }
 
         yield return new WaitForSeconds(screamOutro);
-
-        // SYNC ANIMATION
-        net?.BroadcastCrossFade(IdleHash, 0.1f);
+        if (net != null) net.BroadcastCrossFade(IdleHash, 0.1f);
     }
 
     public void LocalSpawnVent(Vector3 pos, float scale)
@@ -212,15 +200,7 @@ public class EmberOvenWarden : BossController
         }
     }
 
-    private void PlayDie()
-    {
-        // SYNC DEATH
-        net?.BroadcastTrigger("Die");
-
-        Debug.Log("[Warden] Death animation triggered.");
-    }
-
-    // Helpers (unchanged)
+    // Helpers
     void AutoPopulateVentPoints()
     {
         if (!autoFindVentPoints || (ventPoints != null && ventPoints.Length > 0)) return;

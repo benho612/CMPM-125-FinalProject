@@ -1,4 +1,4 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 
 /// <summary>
 /// Warrior-only combat controller (male + female).
@@ -13,13 +13,34 @@ public class WarriorCombatController : MonoBehaviour
     public float attackCooldown = 0.3f;   // delay between clicks
     public float comboResetTime = 1.0f;   // max gap between combo clicks
 
+    [Header("Damage")]
+    [Tooltip("Damage dealt for Attack01..Attack04.")]
+    public float attack01Damage = 40f;
+    public float attack02Damage = 55f;
+    public float attack03Damage = 80f;
+    public float attack04Damage = 30f;
+
+    [Tooltip("How far in front to check for hit per attack.")]
+    public float attack01Range = 2.1f;
+    public float attack02Range = 2.2f;
+    public float attack03Range = 2.6f;
+    public float attack04Range = 2.4f;
+
+    [Tooltip("Hit sphere radius for melee detection.")]
+    public float hitRadius = 0.9f;
+
+    [Tooltip("Delay from animation start to hit time (seconds).")]
+    public float attack01HitDelay = 0.08f;
+    public float attack02HitDelay = 0.10f;
+    public float attack03HitDelay = 0.12f;
+    public float attack04HitDelay = 0.14f;
+
     [Header("Slash VFX")]
     public GameObject slash01Prefab;     // front slash
     public GameObject slash02Prefab;     // reversed front slash (or reuse 01)
     public GameObject slash03Prefab;     // heavy / diagonal slash
     public GameObject slash04Prefab;     // AOE slash
     public float slashLifetime = 1.0f;
-
 
     Transform _slashSpawnPoint;
 
@@ -72,10 +93,10 @@ public class WarriorCombatController : MonoBehaviour
 
         foreach (var t in GetComponentsInChildren<Transform>(true))
         {
-            if (t.name.StartsWith("OHS"))   // catches OHS03, OHS06¡K
+            if (t.name.StartsWith("OHS"))   // catches OHS03, OHS06â€¥
             {
-                 _slashSpawnPoint = t;
-                 break;
+                _slashSpawnPoint = t;
+                break;
             }
         }
 
@@ -85,7 +106,6 @@ public class WarriorCombatController : MonoBehaviour
             enabled = false;
             return;
         }
-
     }
 
     void Update()
@@ -126,10 +146,10 @@ public class WarriorCombatController : MonoBehaviour
             _lastAttackClickTime = Time.time;
 
             PlayAttackAnimation(_comboStep);
+            ScheduleAttackHit(_comboStep);
 
             if (_playerControl != null)
                 _playerControl.EnterCombatFromAttack();
-
         }
     }
 
@@ -154,6 +174,79 @@ public class WarriorCombatController : MonoBehaviour
         SpawnSlashVfx(step);
     }
 
+    void ScheduleAttackHit(int step)
+    {
+        float delay = step switch
+        {
+            1 => attack01HitDelay,
+            2 => attack02HitDelay,
+            3 => attack03HitDelay,
+            4 => attack04HitDelay,
+            _ => 0.1f
+        };
+
+        float range = step switch
+        {
+            1 => attack01Range,
+            2 => attack02Range,
+            3 => attack03Range,
+            4 => attack04Range,
+            _ => 2.0f
+        };
+
+        float dmg = step switch
+        {
+            1 => attack01Damage,
+            2 => attack02Damage,
+            3 => attack03Damage,
+            4 => attack04Damage,
+            _ => 30f
+        };
+
+        // Fire-and-forget delayed hit
+        StartCoroutine(DelayedHit(delay, range, dmg));
+    }
+
+    System.Collections.IEnumerator DelayedHit(float delay, float range, float damage)
+    {
+        yield return new WaitForSeconds(delay);
+        TryDealDamage(range, damage);
+    }
+
+    void TryDealDamage(float range, float damage)
+    {
+        // Determine forward and origin from player root
+        Transform root = _playerControl != null ? _playerControl.transform : transform;
+
+        Vector3 origin = root.position + Vector3.up * 1.0f; // roughly chest height
+        Vector3 forward = root.forward;
+
+        // Center of hit sphere is a bit in front of the player
+        Vector3 center = origin + forward * range;
+
+        // Collect all colliders in the hit sphere
+        Collider[] hits = Physics.OverlapSphere(center, hitRadius, ~0, QueryTriggerInteraction.Ignore);
+        if (hits == null || hits.Length == 0)
+            return;
+
+        string enemyTag = _playerControl != null ? _playerControl.enemyTag : "Enemy";
+
+        // Damage first BossHealth found with the right tag
+        foreach (var col in hits)
+        {
+            if (!col || (enemyTag.Length > 0 && !col.CompareTag(enemyTag)))
+                continue;
+
+            if (col.TryGetComponent<BossHealth>(out var boss))
+            {
+                boss.Damage(damage);
+                // Register combat action so PlayerControl can keep you in combat
+                _playerControl?.RegisterCombatAction();
+                break; // stop at first boss hit
+            }
+        }
+    }
+
     void HandleDefend()
     {
         bool rightDown = Input.GetMouseButton(1);   // hold RMB
@@ -176,14 +269,13 @@ public class WarriorCombatController : MonoBehaviour
         }
         else if (rightDown && _isDefending)
         {
-            // Still defending ¡V just make sure the VFX is alive
+            // Still defending â€“ just make sure the VFX is alive
             if (_shieldInstance == null && shieldVfxPrefab != null && shieldPoint != null)
             {
                 ShowShieldVfx();
             }
         }
     }
-
 
     /// <summary>
     /// Optional: if your animator uses DefendMoveX / DefendMoveZ for
@@ -211,19 +303,19 @@ public class WarriorCombatController : MonoBehaviour
 
         switch (step)
         {
-            case 1: // Attack01 ¡V normal slash
+            case 1: // Attack01 â€“ normal slash
                 prefab = slash01Prefab;
-                localEulerOffset = new Vector3(0f, 0f, 0f);      // e.g. horizontal
+                localEulerOffset = new Vector3(0f, 0f, 0f);
                 break;
-            case 2: // Attack02 ¡V reversed slash
+            case 2: // Attack02 â€“ reversed slash
                 prefab = slash02Prefab != null ? slash02Prefab : slash01Prefab;
-                localEulerOffset = new Vector3(0f, 0f, 180f);    // flip around Z
+                localEulerOffset = new Vector3(0f, 0f, 180f);
                 break;
-            case 3: // Attack03 ¡V maybe vertical / diagonal
+            case 3: // Attack03 â€“ maybe vertical / diagonal
                 prefab = slash03Prefab;
-                localEulerOffset = new Vector3(90f, 0f, 0f);     // example vertical
+                localEulerOffset = new Vector3(90f, 0f, 0f);
                 break;
-            case 4: // Attack04 ¡V AOE
+            case 4: // Attack04 â€“ AOE
                 prefab = slash04Prefab;
                 localEulerOffset = Vector3.zero;
                 break;
@@ -243,7 +335,7 @@ public class WarriorCombatController : MonoBehaviour
             : _slashSpawnPoint.position;
 
         // 3) Base rotation: only use player yaw, ignore sword animation
-        Quaternion playerYaw = Quaternion.Euler(0f, root.eulerAngles.y + 180f , 0f);
+        Quaternion playerYaw = Quaternion.Euler(0f, root.eulerAngles.y + 180f, 0f);
 
         // 4) Apply simple offset (vertical / horizontal / flipped)
         Quaternion rot = playerYaw * Quaternion.Euler(localEulerOffset);
@@ -251,7 +343,7 @@ public class WarriorCombatController : MonoBehaviour
         // 5) Instantiate as child of the player root so it moves with the player
         GameObject fx = Instantiate(prefab, spawnPos, rot, root);
 
-        // 6) Ensure it dies after a bit (if prefab doesn¡¦t already self-destruct)
+        // 6) Ensure it dies after a bit (if prefab doesnâ€™t already self-destruct)
         Destroy(fx, slashLifetime);
     }
 
@@ -284,7 +376,7 @@ public class WarriorCombatController : MonoBehaviour
         if (_shieldInstance == null)
             return;
 
-        // Don¡¦t destroy ¡V just disable so we can reuse it instantly next defend
+        // Donâ€™t destroy â€“ just disable so we can reuse it instantly next defend
         _shieldInstance.SetActive(false);
     }
 
