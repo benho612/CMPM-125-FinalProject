@@ -40,6 +40,11 @@ public class WizardCombatController : MonoBehaviour
     public string paramIsChanneling = "IsChanneling";
     public string paramInCombat = "InCombat";
 
+    [Header("Attack Controller")]
+    private Camera playerCamera;
+
+
+
     // ---- runtime ----
     private PlayerControl _playerControl;
     private Animator _animator;
@@ -83,6 +88,24 @@ public class WizardCombatController : MonoBehaviour
             enabled = false;
             return;
         }
+
+        // AUTO-FIND CAMERA FOR THIS AVATAR
+        if (_avatar != null && _avatar.IsMe)
+        {
+            playerCamera = GetComponentInChildren<Camera>(true);
+
+            if (playerCamera == null)
+            {
+                // Optional fallback if camera is on a deeper child
+                playerCamera = transform.GetComponentInChildren<Camera>(true);
+            }
+
+            if (playerCamera == null)
+            {
+                Debug.LogWarning("WizardCombatController: No camera found in this avatar!");
+            }
+        }
+
     }
 
     void Update()
@@ -118,12 +141,12 @@ public class WizardCombatController : MonoBehaviour
         {
             if (_isChanneling)
             {
-                // release after charge ¡÷ fire big spell
+                // release after charge ï¿½ï¿½ fire big spell
                 EndChannelAndFireCharged();
             }
             else
             {
-                // short tap ¡÷ quick Attack01 (if not on cooldown)
+                // short tap ï¿½ï¿½ quick Attack01 (if not on cooldown)
                 TryTapFireball();
             }
 
@@ -151,11 +174,18 @@ public class WizardCombatController : MonoBehaviour
         // Spawn small fireball
         if (smallFireballPrefab != null && firePoint != null)
         {
+            Vector3 aimDirection = playerCamera.transform.forward; 
+            aimDirection.Normalize();
+
+            // Spawn facing the aim direction
+            Quaternion aimRotation = Quaternion.LookRotation(aimDirection, Vector3.up);
+
             GameObject fb = Instantiate(
-                smallFireballPrefab,
+                smallFireballPrefab,   // or chargedFireballPrefab
                 firePoint.position,
-                firePoint.rotation
+                aimRotation
             );
+
 
             // make sure it dies after 3s (or whatever is on the prefab script)
             var life = fb.GetComponent<FireballLifetime>();
@@ -166,6 +196,8 @@ public class WizardCombatController : MonoBehaviour
         }
         if (_playerControl != null)
             _playerControl.EnterCombatFromAttack();
+
+        Debug.Log("TAP FIREBALL FIRED");
 
     }
 
@@ -222,5 +254,7 @@ public class WizardCombatController : MonoBehaviour
             _isChanneling = false;
             _animator.SetBool("IsChanneling", false);
         }
+        Debug.Log("CHARGED FIREBALL FIRED");
+
     }
 }
