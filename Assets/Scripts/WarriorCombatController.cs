@@ -45,13 +45,18 @@ public class WarriorCombatController : MonoBehaviour
     Transform _slashSpawnPoint;
 
     [Header("Shield VFX")]
-    [Tooltip("Prefab for the shield visual effect.")]
     public GameObject shieldVfxPrefab;
-
-    [Tooltip("How far in front of the shieldPoint to spawn the VFX.")]
-    public float shieldForwardOffset = 0.2f;
-
     private GameObject _shieldInstance;
+
+    [Header("Boss Hit VFX")]
+    [Tooltip("VFX spawned when the warrior successfully deals damage to the boss.")]
+    public GameObject bossHitVfxPrefab;
+
+    [Tooltip("How long the boss hit VFX lives before being destroyed.")]
+    public float bossHitVfxLifetime = 1.2f;
+
+    [Tooltip("Offset applied to the hit position (e.g., raise effect up a bit).")]
+    public Vector3 bossHitVfxOffset = new Vector3(0f, 1.5f, 0f);
 
     PlayerControl _playerControl;
     Animator _animator;
@@ -272,6 +277,7 @@ public class WarriorCombatController : MonoBehaviour
                     Debug.Log($"[Warrior] HIT boss via collider='{col.name}'. Applying local damage={damage:0}. HP before={before:0}.");
                     _boss.Damage(damage); // single-player fallback
                 }
+                SpawnBossHitVfx(closest);
                 _playerControl?.RegisterCombatAction();
                 return;
             }
@@ -385,14 +391,21 @@ public class WarriorCombatController : MonoBehaviour
         _shieldInstance.SetActive(false);
     }
 
-    private Transform FindChildByName(Transform root, string targetName)
+    void SpawnBossHitVfx(Vector3 hitWorldPos)
     {
-        var allChildren = root.GetComponentsInChildren<Transform>(true);
-        foreach (Transform t in allChildren)
-        {
-            if (t.name == targetName)
-                return t;
-        }
-        return null;
+        if (bossHitVfxPrefab == null)
+            return;
+
+        // Offset so it appears around chest/head rather than feet
+        Vector3 spawnPos = hitWorldPos + bossHitVfxOffset;
+
+        // Parent to boss if we have one, so it follows the boss if it moves
+        Transform parent = _boss != null ? _boss.transform : null;
+
+        GameObject fx = Instantiate(bossHitVfxPrefab, spawnPos, Quaternion.identity, parent);
+
+        if (bossHitVfxLifetime > 0f)
+            Destroy(fx, bossHitVfxLifetime);
     }
+
 }
