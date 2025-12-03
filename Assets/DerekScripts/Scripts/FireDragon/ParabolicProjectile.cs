@@ -7,7 +7,7 @@ public class ParabolicProjectile : MonoBehaviour
     public float speed = 12f;
     public float arcHeight = 3f;
     public float radius = 0.6f;
-    public float damage = 12f;
+    public float damage = 4f;
     public float lifetime = 8f;
     public LayerMask hitMask;
     public bool authoritative = true; // host true, clients false (visual only)
@@ -42,7 +42,13 @@ public class ParabolicProjectile : MonoBehaviour
                 foreach (var c in cols)
                 {
                     var dmg = c.GetComponent<PlayerDamageReceiver>();
-                    if (dmg) { dmg.ApplyDamage(damage); Destroy(gameObject); yield break; }
+                    if (dmg)
+                    {
+                        // Fireballs are blockable: use normal ApplyDamage
+                        dmg.ApplyDamage(damage);
+                        Destroy(gameObject);
+                        yield break;
+                    }
                 }
             }
             yield return null;

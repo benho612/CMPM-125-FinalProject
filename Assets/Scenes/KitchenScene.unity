@@ -287,11 +287,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4641208513574378, guid: 01701cff1618c074ca4c37d49d60566f, type: 3}
   m_PrefabInstance: {fileID: 2012894810}
   m_PrefabAsset: {fileID: 0}
---- !u!4 &27969706 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 8575831610323933068, guid: c4dd0b8688a67ad4f91805359bb09c5a, type: 3}
-  m_PrefabInstance: {fileID: 452761061}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &29316658
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1805,6 +1800,7 @@ GameObject:
   - component: {fileID: 215920839}
   - component: {fileID: 215920841}
   - component: {fileID: 215920840}
+  - component: {fileID: 215920842}
   m_Layer: 5
   m_Name: ChecklistPanel
   m_TagString: Untagged
@@ -1870,6 +1866,21 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 215920838}
   m_CullTransparentMesh: 1
+--- !u!114 &215920842
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 215920838}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 68a25595d1f87da46a7878a5d1592acd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ChecklistUI
+  inventory: {fileID: 1441864708}
+  checklistText: {fileID: 1482192711}
+  panel: {fileID: 215920838}
 --- !u!1 &218004348
 GameObject:
   m_ObjectHideFlags: 0
@@ -8242,14 +8253,29 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::WarriorCombatController
   attackCooldown: 0.3
   comboResetTime: 1
+  attack01Damage: 40
+  attack02Damage: 55
+  attack03Damage: 80
+  attack04Damage: 30
+  attack01Range: 2.1
+  attack02Range: 2.2
+  attack03Range: 2.6
+  attack04Range: 2.4
+  hitRadius: 0.9
+  attack01HitDelay: 0.08
+  attack02HitDelay: 0.1
+  attack03HitDelay: 0.12
+  attack04HitDelay: 0.14
   slash01Prefab: {fileID: 7611201976539897820, guid: 39706049c667f7d4bbca965b63cd3bec, type: 3}
   slash02Prefab: {fileID: 0}
   slash03Prefab: {fileID: 9380231799744250, guid: 197469d1eee2fc1488538f97714cf9de, type: 3}
   slash04Prefab: {fileID: 6855955652325114174, guid: f8dc879bd6649cb4782409815764d676, type: 3}
   slashLifetime: 1
-  shieldPoint: {fileID: 27969706}
   shieldVfxPrefab: {fileID: 6424583148328831481, guid: d2ffbc8b168cdf74a9dbb7c6c1cfdf2f, type: 3}
   shieldForwardOffset: 0.2
+  slashAudioSource: {fileID: 0}
+  slashAttackClip: {fileID: 0}
+  slashVolume: 1
 --- !u!114 &958128814
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8264,7 +8290,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::WizardCombatController
   attackAction: {fileID: 1120369429361536294, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   smallFireballPrefab: {fileID: 3367314013316085171, guid: 8b20002c2b69a9d44ab5bae8e1d923cd, type: 3}
-  chargedFireballPrefab: {fileID: 2715471840370901047, guid: df9374346b76e444dbbb2b019de4da25, type: 3}
   firePoint: {fileID: 1523656914}
   tapMaxDuration: 0.2
   chargeThreshold: 0.6
@@ -8273,8 +8298,26 @@ MonoBehaviour:
   stateAttack02Start: Attack02Start
   stateAttack02Maintain: Attack02Maintain
   stateBattleIdle: Battle_Idle
+  rollLockDuration: 0.7
+  stateRollForward: RollForward
+  stateRollBackward: RollBackward
+  stateRollLeft: RollLeft
+  stateRollRight: RollRight
   paramIsChanneling: IsChanneling
   paramInCombat: InCombat
+  meteorAoePrefab: {fileID: 0}
+  meteorIndicatorPrefab: {fileID: 0}
+  groundMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  maxAimDistance: 30
+  oneShotSource: {fileID: 0}
+  leftClickClip: {fileID: 0}
+  meteorReleaseClip: {fileID: 0}
+  oneShotVolume: 1
+  channelSource: {fileID: 0}
+  channelLoopClip: {fileID: 0}
+  channelVolume: 1
 --- !u!114 &958128815
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8321,9 +8364,23 @@ MonoBehaviour:
   doubleJumpVfxPrefab: {fileID: 985483039366664255, guid: f91edac4d13fc4343ba96bb6a843ad05, type: 3}
   doubleJumpSpawnPoint: {fileID: 0}
   doubleJumpVfxLifetime: 1.5
+  jumpSource: {fileID: 0}
+  jumpSound: {fileID: 0}
+  jumpVolume: 1
+  rollSpeed: 12
+  rollInvulnDuration: 0.4
+  invulnerableColliders: []
+  footstepSource: {fileID: 0}
+  walkingLoop: {fileID: 0}
+  walkPitch: 1
+  runPitch: 1.25
+  pitchLerpSpeed: 8
   canMove: 1
   Animator: {fileID: 1832963540}
   CharacterController: {fileID: 958128817}
+  aimCameraDistance: 0.1
+  aimCameraHeight: 1.7
+  aimCameraSideOffset: 10
 --- !u!143 &958128817
 CharacterController:
   m_ObjectHideFlags: 0
@@ -11313,11 +11370,6 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 3.9760947, y: 1.7586563, z: 1.3832071}
   m_Center: {x: -1.7498173, y: -0.6115277, z: 0.0000013146536}
---- !u!4 &1240243289 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 8575831610323933068, guid: c4dd0b8688a67ad4f91805359bb09c5a, type: 3}
-  m_PrefabInstance: {fileID: 381497851}
-  m_PrefabAsset: {fileID: 0}
 --- !u!4 &1248958753 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 4286209532176036, guid: bb94340bd6b78c044b8b6f772e321649, type: 3}
@@ -12857,14 +12909,29 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::WarriorCombatController
   attackCooldown: 0.3
   comboResetTime: 1
+  attack01Damage: 40
+  attack02Damage: 55
+  attack03Damage: 80
+  attack04Damage: 30
+  attack01Range: 2.1
+  attack02Range: 2.2
+  attack03Range: 2.6
+  attack04Range: 2.4
+  hitRadius: 0.9
+  attack01HitDelay: 0.08
+  attack02HitDelay: 0.1
+  attack03HitDelay: 0.12
+  attack04HitDelay: 0.14
   slash01Prefab: {fileID: 7611201976539897820, guid: 39706049c667f7d4bbca965b63cd3bec, type: 3}
   slash02Prefab: {fileID: 0}
   slash03Prefab: {fileID: 9380231799744250, guid: 197469d1eee2fc1488538f97714cf9de, type: 3}
   slash04Prefab: {fileID: 6855955652325114174, guid: f8dc879bd6649cb4782409815764d676, type: 3}
   slashLifetime: 1
-  shieldPoint: {fileID: 1240243289}
   shieldVfxPrefab: {fileID: 6424583148328831481, guid: d2ffbc8b168cdf74a9dbb7c6c1cfdf2f, type: 3}
   shieldForwardOffset: 0.2
+  slashAudioSource: {fileID: 0}
+  slashAttackClip: {fileID: 0}
+  slashVolume: 1
 --- !u!114 &1441864697
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -12879,7 +12946,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::WizardCombatController
   attackAction: {fileID: 1120369429361536294, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   smallFireballPrefab: {fileID: 3367314013316085171, guid: 8b20002c2b69a9d44ab5bae8e1d923cd, type: 3}
-  chargedFireballPrefab: {fileID: 2715471840370901047, guid: df9374346b76e444dbbb2b019de4da25, type: 3}
   firePoint: {fileID: 1063983465}
   tapMaxDuration: 0.2
   chargeThreshold: 0.6
@@ -12888,8 +12954,26 @@ MonoBehaviour:
   stateAttack02Start: Attack02Start
   stateAttack02Maintain: Attack02Maintain
   stateBattleIdle: Battle_Idle
+  rollLockDuration: 0.7
+  stateRollForward: RollForward
+  stateRollBackward: RollBackward
+  stateRollLeft: RollLeft
+  stateRollRight: RollRight
   paramIsChanneling: IsChanneling
   paramInCombat: InCombat
+  meteorAoePrefab: {fileID: 0}
+  meteorIndicatorPrefab: {fileID: 0}
+  groundMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  maxAimDistance: 30
+  oneShotSource: {fileID: 0}
+  leftClickClip: {fileID: 0}
+  meteorReleaseClip: {fileID: 0}
+  oneShotVolume: 1
+  channelSource: {fileID: 0}
+  channelLoopClip: {fileID: 0}
+  channelVolume: 1
 --- !u!114 &1441864698
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -12936,9 +13020,23 @@ MonoBehaviour:
   doubleJumpVfxPrefab: {fileID: 985483039366664255, guid: f91edac4d13fc4343ba96bb6a843ad05, type: 3}
   doubleJumpSpawnPoint: {fileID: 0}
   doubleJumpVfxLifetime: 1.5
+  jumpSource: {fileID: 0}
+  jumpSound: {fileID: 0}
+  jumpVolume: 1
+  rollSpeed: 12
+  rollInvulnDuration: 0.4
+  invulnerableColliders: []
+  footstepSource: {fileID: 0}
+  walkingLoop: {fileID: 0}
+  walkPitch: 1
+  runPitch: 1.25
+  pitchLerpSpeed: 8
   canMove: 1
   Animator: {fileID: 1161131998}
   CharacterController: {fileID: 1441864700}
+  aimCameraDistance: 0.1
+  aimCameraHeight: 1.7
+  aimCameraSideOffset: 10
 --- !u!143 &1441864700
 CharacterController:
   m_ObjectHideFlags: 0
@@ -13074,7 +13172,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b7307beb5a2490149b8d9255c55e4245, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CookingPhaseManager
-  checklist: {fileID: 1860782774}
+  checklist: {fileID: 215920842}
 --- !u!114 &1441864706
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -13478,7 +13576,7 @@ TerrainCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_ProvidesContacts: 0
+  m_ProvidesContacts: 1
   m_Enabled: 1
   serializedVersion: 2
   m_TerrainData: {fileID: 15600000, guid: 7e5d83b46894e3444b9bf49a205cccad, type: 2}
@@ -14655,8 +14753,8 @@ SphereCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Radius: 0.5
-  m_Center: {x: 0, y: 0, z: 0}
+  m_Radius: 0.530971
+  m_Center: {x: 0, y: 0.21493094, z: 0.18395986}
 --- !u!23 &1617125705
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -14664,7 +14762,7 @@ MeshRenderer:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1617125702}
-  m_Enabled: 1
+  m_Enabled: 0
   m_CastShadows: 1
   m_ReceiveShadows: 1
   m_DynamicOccludee: 1
@@ -15980,7 +16078,6 @@ GameObject:
   - component: {fileID: 1860782772}
   - component: {fileID: 1860782771}
   - component: {fileID: 1860782770}
-  - component: {fileID: 1860782774}
   m_Layer: 5
   m_Name: PlayerUI
   m_TagString: Untagged
@@ -16076,21 +16173,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 0}
---- !u!114 &1860782774
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1860782769}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 68a25595d1f87da46a7878a5d1592acd, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ChecklistUI
-  inventory: {fileID: 1441864708}
-  checklistText: {fileID: 1482192711}
-  panel: {fileID: 215920838}
 --- !u!1 &1867570154
 GameObject:
   m_ObjectHideFlags: 0
@@ -19466,10 +19548,10 @@ SceneRoots:
   - {fileID: 1126412647}
   - {fileID: 723011576}
   - {fileID: 1617125707}
-  - {fileID: 281400272}
   - {fileID: 123639913}
+  - {fileID: 281400272}
+  - {fileID: 597749307}
+  - {fileID: 1436887682}
   - {fileID: 958128821}
   - {fileID: 1441864704}
   - {fileID: 1860782773}
-  - {fileID: 1436887682}
-  - {fileID: 597749307}

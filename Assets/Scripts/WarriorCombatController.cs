@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 /// <summary>
 /// Warrior-only combat controller (male + female).
@@ -13,6 +13,28 @@ public class WarriorCombatController : MonoBehaviour
     public float attackCooldown = 0.3f;   // delay between clicks
     public float comboResetTime = 1.0f;   // max gap between combo clicks
 
+    [Header("Damage")]
+    [Tooltip("Damage dealt for Attack01..Attack04.")]
+    public float attack01Damage = 40f;
+    public float attack02Damage = 55f;
+    public float attack03Damage = 80f;
+    public float attack04Damage = 30f;
+
+    [Tooltip("How far in front to check for hit per attack.")]
+    public float attack01Range = 2.1f;
+    public float attack02Range = 2.2f;
+    public float attack03Range = 2.6f;
+    public float attack04Range = 2.4f;
+
+    [Tooltip("Hit sphere radius for melee detection.")]
+    public float hitRadius = 0.9f;
+
+    [Tooltip("Delay from animation start to hit time (seconds).")]
+    public float attack01HitDelay = 0.08f;
+    public float attack02HitDelay = 0.10f;
+    public float attack03HitDelay = 0.12f;
+    public float attack04HitDelay = 0.14f;
+
     [Header("Slash VFX")]
     public GameObject slash01Prefab;     // front slash
     public GameObject slash02Prefab;     // reversed front slash (or reuse 01)
@@ -20,13 +42,9 @@ public class WarriorCombatController : MonoBehaviour
     public GameObject slash04Prefab;     // AOE slash
     public float slashLifetime = 1.0f;
 
-
     Transform _slashSpawnPoint;
 
     [Header("Shield VFX")]
-    [Tooltip("Point on the character where the shield effect should appear (e.g. an empty under the shield).")]
-    public Transform shieldPoint;
-
     [Tooltip("Prefab for the shield visual effect.")]
     public GameObject shieldVfxPrefab;
 
@@ -47,6 +65,14 @@ public class WarriorCombatController : MonoBehaviour
 
     public bool IsDefending => _isDefending;
 
+    // Cache the boss reference (auto-found)
+    private BossHealth _boss;
+
+    [Header("Slash Audio")]
+    public AudioSource slashAudioSource;
+    public AudioClip slashAttackClip;
+    public float slashVolume = 1.0f;
+
     void Start()
     {
         _avatar = GetComponent<Alteruna.Avatar>();
@@ -59,23 +85,17 @@ public class WarriorCombatController : MonoBehaviour
         _playerControl = GetComponent<PlayerControl>();
         _animator = _playerControl.Animator;
 
+        // Auto-find boss once
+        _boss = FindObjectOfType<BossHealth>();
+
         int id = CharacterDatabase.SelectedCharacterID;
-
-        if (shieldPoint == null)
-        {
-            // Try male first (Shield08), then female (Shield05)
-            shieldPoint = FindChildByName(transform, "Shield08");
-
-            if (shieldPoint == null)
-                shieldPoint = FindChildByName(transform, "Shield05");
-        }
 
         foreach (var t in GetComponentsInChildren<Transform>(true))
         {
-            if (t.name.StartsWith("OHS"))   // catches OHS03, OHS06�K
+            if (t.name.StartsWith("OHS"))   // catches OHS03, OHS06‥
             {
-                 _slashSpawnPoint = t;
-                 break;
+                _slashSpawnPoint = t;
+                break;
             }
         }
 
@@ -85,7 +105,6 @@ public class WarriorCombatController : MonoBehaviour
             enabled = false;
             return;
         }
-
     }
 
     void Update()
@@ -126,6 +145,7 @@ public class WarriorCombatController : MonoBehaviour
             _lastAttackClickTime = Time.time;
 
             PlayAttackAnimation(_comboStep);
+            ScheduleAttackHit(_comboStep);
 
             if (_playerControl != null)
                 _playerControl.EnterCombatFromAttack();
@@ -162,6 +182,113 @@ public class WarriorCombatController : MonoBehaviour
         SpawnSlashVfx(step);
     }
 
+    void ScheduleAttackHit(int step)
+    {
+        float delay = step switch
+        {
+            1 => attack01HitDelay,
+            2 => attack02HitDelay,
+            3 => attack03HitDelay,
+            4 => attack04HitDelay,
+            _ => 0.1f
+        };
+
+        float range = step switch
+        {
+            1 => attack01Range,
+            2 => attack02Range,
+            3 => attack03Range,
+            4 => attack04Range,
+            _ => 2.0f
+        };
+
+        float dmg = step switch
+        {
+            1 => attack01Damage,
+            2 => attack02Damage,
+            3 => attack03Damage,
+            4 => attack04Damage,
+            _ => 30f
+        };
+
+        Debug.Log($"[Warrior] Scheduled hit: step={step}, delay={delay:0.00}s, range={range:0.00}, dmg={dmg:0}");
+
+        // Fire-and-forget delayed hit
+        StartCoroutine(DelayedHit(delay, range, dmg));
+    }
+
+    System.Collections.IEnumerator DelayedHit(float delay, float range, float damage)
+    {
+        yield return new WaitForSeconds(delay);
+        TryDealDamage(range, damage);
+    }
+
+    // Simplified: find BossHealth once and test hits against any colliders on that object (including children)
+    void TryDealDamage(float range, float damage)
+    {
+        // Lazy-refresh boss reference if needed
+        if (_boss == null)
+            _boss = FindObjectOfType<BossHealth>();
+        if (_boss == null)
+        {
+            Debug.LogWarning("[Warrior] No BossHealth found in scene; cannot apply damage.");
+            return;
+        }
+
+        // Determine forward and origin from player root
+        Transform root = _playerControl != null ? _playerControl.transform : transform;
+
+        Vector3 origin = root.position + Vector3.up * 1.0f; // roughly chest height
+        Vector3 forward = root.forward;
+
+        // Center of hit sphere is a bit in front of the player
+        Vector3 center = origin + forward * range;
+
+        Debug.DrawLine(origin, center, Color.red, 0.25f);
+        Debug.Log($"[Warrior] HitCheck(center={center}, radius={hitRadius:0.00}) vs boss='{_boss.name}'.");
+
+        // Get all colliders under the boss object
+        var bossColliders = _boss.GetComponentsInChildren<Collider>();
+        if (bossColliders == null || bossColliders.Length == 0)
+        {
+            Debug.LogWarning("[Warrior] Boss has no colliders; cannot be hit.");
+            return;
+        }
+
+        // Test the sphere against each boss collider using ClosestPoint
+        foreach (var col in bossColliders)
+        {
+            if (col == null || !col.enabled)
+                continue;
+
+            Vector3 closest = col.ClosestPoint(center);
+            float dist = Vector3.Distance(closest, center);
+
+            Debug.Log($"[Warrior] Check collider='{col.name}' closest={closest} dist={dist:0.00}");
+
+            // inside TryDealDamage, when a hit is confirmed:
+            if (dist <= hitRadius)
+            {
+                float before = _boss.HP;
+                var net = _boss.GetComponent<BossNetSync>();
+                if (net != null)
+                {
+                    Debug.Log($"[Warrior] HIT boss via collider='{col.name}'. Requesting network damage={damage:0}. HP before={before:0}.");
+                    net.RequestDamage(damage); // host authoritative
+                }
+                else
+                {
+                    Debug.Log($"[Warrior] HIT boss via collider='{col.name}'. Applying local damage={damage:0}. HP before={before:0}.");
+                    _boss.Damage(damage); // single-player fallback
+                }
+                _playerControl?.RegisterCombatAction();
+                return;
+            }
+        }
+
+        Debug.Log("[Warrior] No boss collider intersected by hit sphere.");
+    }
+
     void HandleDefend()
     {
         bool rightDown = Input.GetMouseButton(1);   // hold RMB
@@ -184,19 +311,14 @@ public class WarriorCombatController : MonoBehaviour
         }
         else if (rightDown && _isDefending)
         {
-            // Still defending �V just make sure the VFX is alive
-            if (_shieldInstance == null && shieldVfxPrefab != null && shieldPoint != null)
+            // Still defending – just make sure the VFX is alive
+            if (_shieldInstance == null && shieldVfxPrefab != null )
             {
                 ShowShieldVfx();
             }
         }
     }
 
-
-    /// <summary>
-    /// Optional: if your animator uses DefendMoveX / DefendMoveZ for
-    /// defend strafing animations, update them here.
-    /// </summary>
     void UpdateDefendMoveAnimations()
     {
         if (!_isDefending || _animator == null)
@@ -219,72 +341,49 @@ public class WarriorCombatController : MonoBehaviour
 
         switch (step)
         {
-            case 1: // Attack01 �V normal slash
-                prefab = slash01Prefab;
-                localEulerOffset = new Vector3(0f, 0f, 0f);      // e.g. horizontal
-                break;
-            case 2: // Attack02 �V reversed slash
-                prefab = slash02Prefab != null ? slash02Prefab : slash01Prefab;
-                localEulerOffset = new Vector3(0f, 0f, 180f);    // flip around Z
-                break;
-            case 3: // Attack03 �V maybe vertical / diagonal
-                prefab = slash03Prefab;
-                localEulerOffset = new Vector3(90f, 0f, 0f);     // example vertical
-                break;
-            case 4: // Attack04 �V AOE
-                prefab = slash04Prefab;
-                localEulerOffset = Vector3.zero;
-                break;
+            case 1: prefab = slash01Prefab; localEulerOffset = new Vector3(0f, 0f, 0f); break;
+            case 2: prefab = slash02Prefab != null ? slash02Prefab : slash01Prefab; localEulerOffset = new Vector3(0f, 0f, 180f); break;
+            case 3: prefab = slash03Prefab; localEulerOffset = new Vector3(90f, 0f, 0f); break;
+            case 4: prefab = slash04Prefab; localEulerOffset = Vector3.zero; break;
         }
 
         if (prefab == null)
             return;
 
-        // 1) Decide parent = player root, NOT the sword
         Transform root = _playerControl != null ? _playerControl.transform : transform;
-
-        // 2) Spawn position:
-        //    - for normal slashes: at sword position
-        //    - for AOE: at player center
-        Vector3 spawnPos = (step == 4)
-            ? root.position
-            : _slashSpawnPoint.position;
-
-        // 3) Base rotation: only use player yaw, ignore sword animation
-        Quaternion playerYaw = Quaternion.Euler(0f, root.eulerAngles.y + 180f , 0f);
-
-        // 4) Apply simple offset (vertical / horizontal / flipped)
+        Vector3 spawnPos = (step == 4) ? root.position : _slashSpawnPoint.position;
+        Quaternion playerYaw = Quaternion.Euler(0f, root.eulerAngles.y + 180f, 0f);
         Quaternion rot = playerYaw * Quaternion.Euler(localEulerOffset);
 
-        // 5) Instantiate as child of the player root so it moves with the player
         GameObject fx = Instantiate(prefab, spawnPos, rot, root);
-
-        // 6) Ensure it dies after a bit (if prefab doesn��t already self-destruct)
         Destroy(fx, slashLifetime);
+
+        if (slashAudioSource != null && slashAttackClip != null)
+        {
+            slashAudioSource.PlayOneShot(slashAttackClip, slashVolume);
+        }
     }
 
     void ShowShieldVfx()
     {
-        if (shieldVfxPrefab == null || shieldPoint == null)
+        if (shieldVfxPrefab == null)
             return;
 
-        // If we already spawned one, just reactivate it
         if (_shieldInstance != null)
         {
             _shieldInstance.SetActive(true);
             return;
         }
 
-        // Spawn slightly in front of the shieldPoint
-        Vector3 spawnPos = shieldPoint.position + shieldPoint.forward * shieldForwardOffset;
+        // Spawn directly at player center (no need for shieldPoint)
+        Vector3 spawnPos = transform.position;
 
-        // Make the effect face outward from the shield
-        Quaternion rot = Quaternion.LookRotation(shieldPoint.forward, Vector3.up);
+        // Keep rotation identity so the sphere looks correct
+        Quaternion rot = Quaternion.identity;
 
-        _shieldInstance = Instantiate(shieldVfxPrefab, spawnPos, rot);
+        // Parent to the player root so it follows the whole character
+        _shieldInstance = Instantiate(shieldVfxPrefab, spawnPos, rot, transform);
 
-        // Parent to the shieldPoint so it moves with the shield
-        _shieldInstance.transform.SetParent(shieldPoint, worldPositionStays: true);
     }
 
     void HideShieldVfx()
@@ -292,13 +391,11 @@ public class WarriorCombatController : MonoBehaviour
         if (_shieldInstance == null)
             return;
 
-        // Don��t destroy �V just disable so we can reuse it instantly next defend
         _shieldInstance.SetActive(false);
     }
 
     private Transform FindChildByName(Transform root, string targetName)
     {
-        // search in all children, including inactive ones
         var allChildren = root.GetComponentsInChildren<Transform>(true);
         foreach (Transform t in allChildren)
         {

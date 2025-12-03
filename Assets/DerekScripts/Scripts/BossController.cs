@@ -18,29 +18,31 @@ public abstract class BossController : MonoBehaviour
     protected bool fightActive;
     bool _loopRunning;                     // re-entrancy guard
 
-    // -------- Host check (robust across Alteruna API variants) --------
+    // -------- Host check (robust + null-safe) --------
     protected bool IsHost
     {
         get
         {
             var mp = multiplayer;
+            if (mp == null) return true; // offline fallback: treat as host
 
-            // Prefer Me if available; fall back to GetUser
             Alteruna.User me = null;
-            try { me = mp.Me; } catch { /* some SDKs don't expose Me */ }
+            try { me = mp.Me; } catch { }
             if (me == null)
             {
-                try { me = mp.GetUser(); } catch { /* older SDKs */ }
+                try { me = mp.GetUser(); } catch { }
             }
 
+            if (me == null) return true; // offline / not initialized yet
 
-            // Alteruna host is index 0 or me.IsHost (depending on SDK)
             bool isHost = false;
-            try { isHost = me.IsHost; } catch { /* property may not exist */ }
+            try { isHost = me.IsHost; } catch { }
+
             if (!isHost)
             {
-                try { isHost = (me.Index == 0); } catch { /* ignore */ }
+                try { isHost = (me.Index == 0); } catch { }
             }
+
             return isHost;
         }
     }
@@ -50,7 +52,6 @@ public abstract class BossController : MonoBehaviour
         net = GetComponent<BossNetSync>();
         health = GetComponent<BossHealth>();
 
-        // Auto-wire Multiplayer if not set
         if (multiplayer == null)
         {
 #if UNITY_2023_1_OR_NEWER || UNITY_6000_0_OR_NEWER
@@ -65,7 +66,7 @@ public abstract class BossController : MonoBehaviour
         rng = new System.Random(baseSeed);
     }
 
-    /// <summary>Start the fight with a deterministic seed (call this from your auto-starter or intro).</summary>
+    /// <summary>Start the fight with a deterministic seed (host starts loop).</summary>
     public void StartFight(int seedOverride)
     {
         baseSeed = seedOverride;
@@ -78,7 +79,6 @@ public abstract class BossController : MonoBehaviour
             StartCoroutine(FightLoop());
     }
 
-    /// <summary>Stop the fight loop (host).</summary>
     public void StopFight()
     {
         fightActive = false;
@@ -93,6 +93,7 @@ public abstract class BossController : MonoBehaviour
     IEnumerator FightLoop()
     {
         _loopRunning = true;
+
         int phase = ComputePhase();
         if (net != null) net.BroadcastPhase(phase);
 
@@ -100,18 +101,15 @@ public abstract class BossController : MonoBehaviour
 
         while (fightActive && IsAlive())
         {
-            // Pick attack, seed, broadcast for UI/FX (if you listen), then run it (host only).
             var (attackId, seed) = PickNextAttack();
             if (net != null) net.BroadcastStartAttack(attackId, seed);
 
             Debug.Log($"[BossController] Running attack {attackId} (seed {seed}).");
             yield return RunAttackHost(attackId, seed);
 
-            // Cadence clamp to avoid negative/zero
             float wait = Mathf.Max(0.05f, attackCadence);
             yield return new WaitForSeconds(wait);
 
-            // Optional phases (safe default = single phase)
             int newPhase = ComputePhase();
             if (newPhase != phase)
             {
@@ -131,36 +129,19 @@ public abstract class BossController : MonoBehaviour
     protected bool IsAlive()
     {
         if (health == null) return true;
-        return health.HP > 0f;   // adjust if your BossHealth uses different naming
+        return health.HP > 0f;
     }
 
-    /// <summary>
-    /// Compute phase index by normalized HP. Safe default returns 0 (single phase).
-    /// Uncomment and adapt if your BossHealth exposes a MaxHP/Normalized property.
-    /// </summary>
     int ComputePhase()
     {
-        // --- Simple, safe default (always phase 0) ---
         return 0;
-
-        /*
-        // If your BossHealth has MaxHP, use this instead:
-        if (health != null && health.MaxHP > 0f)
-        {
-            float pct = Mathf.Clamp01(health.HP / health.MaxHP);
-            return (pct < 0.34f) ? 2 : (pct < 0.67f) ? 1 : 0;
-        }
-        return 0;
-        */
     }
 
     protected virtual void OnFightEnded() { }
 
-    // Each boss implements these:
     protected abstract (int attackId, int seed) PickNextAttack();
     protected abstract IEnumerator RunAttackHost(int attackId, int seed);
 
-    // Utility: deterministic helpers
     protected float RandRange(float a, float b) => (float)(a + rng.NextDouble() * (b - a));
     protected int RandInt(int minInc, int maxExc) => rng.Next(minInc, maxExc);
 }
