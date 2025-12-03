@@ -148,6 +148,13 @@ public class WizardCombatController : MonoBehaviour
             {
                 // short tap �� quick Attack01 (if not on cooldown)
                 TryTapFireball();
+                var c = GetComponent<CookingPhaseManager>();
+                if (c != null && c.CurrentMiniGame != null)
+                {
+                    c.CurrentMiniGame.OnPlayerPrimaryAction();
+                    return; 
+                }
+
             }
 
             _isHoldingAttack = false;

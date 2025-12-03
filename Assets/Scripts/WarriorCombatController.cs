@@ -72,7 +72,7 @@ public class WarriorCombatController : MonoBehaviour
 
         foreach (var t in GetComponentsInChildren<Transform>(true))
         {
-            if (t.name.StartsWith("OHS"))   // catches OHS03, OHS06¡K
+            if (t.name.StartsWith("OHS"))   // catches OHS03, OHS06ï¿½K
             {
                  _slashSpawnPoint = t;
                  break;
@@ -129,6 +129,14 @@ public class WarriorCombatController : MonoBehaviour
 
             if (_playerControl != null)
                 _playerControl.EnterCombatFromAttack();
+            
+            var c = GetComponent<CookingPhaseManager>();
+            if (c != null && c.CurrentMiniGame != null)
+            {
+                c.CurrentMiniGame.OnPlayerPrimaryAction();
+                return; 
+            }
+
 
         }
     }
@@ -176,7 +184,7 @@ public class WarriorCombatController : MonoBehaviour
         }
         else if (rightDown && _isDefending)
         {
-            // Still defending ¡V just make sure the VFX is alive
+            // Still defending ï¿½V just make sure the VFX is alive
             if (_shieldInstance == null && shieldVfxPrefab != null && shieldPoint != null)
             {
                 ShowShieldVfx();
@@ -211,19 +219,19 @@ public class WarriorCombatController : MonoBehaviour
 
         switch (step)
         {
-            case 1: // Attack01 ¡V normal slash
+            case 1: // Attack01 ï¿½V normal slash
                 prefab = slash01Prefab;
                 localEulerOffset = new Vector3(0f, 0f, 0f);      // e.g. horizontal
                 break;
-            case 2: // Attack02 ¡V reversed slash
+            case 2: // Attack02 ï¿½V reversed slash
                 prefab = slash02Prefab != null ? slash02Prefab : slash01Prefab;
                 localEulerOffset = new Vector3(0f, 0f, 180f);    // flip around Z
                 break;
-            case 3: // Attack03 ¡V maybe vertical / diagonal
+            case 3: // Attack03 ï¿½V maybe vertical / diagonal
                 prefab = slash03Prefab;
                 localEulerOffset = new Vector3(90f, 0f, 0f);     // example vertical
                 break;
-            case 4: // Attack04 ¡V AOE
+            case 4: // Attack04 ï¿½V AOE
                 prefab = slash04Prefab;
                 localEulerOffset = Vector3.zero;
                 break;
@@ -251,7 +259,7 @@ public class WarriorCombatController : MonoBehaviour
         // 5) Instantiate as child of the player root so it moves with the player
         GameObject fx = Instantiate(prefab, spawnPos, rot, root);
 
-        // 6) Ensure it dies after a bit (if prefab doesn¡¦t already self-destruct)
+        // 6) Ensure it dies after a bit (if prefab doesnï¿½ï¿½t already self-destruct)
         Destroy(fx, slashLifetime);
     }
 
@@ -284,7 +292,7 @@ public class WarriorCombatController : MonoBehaviour
         if (_shieldInstance == null)
             return;
 
-        // Don¡¦t destroy ¡V just disable so we can reuse it instantly next defend
+        // Donï¿½ï¿½t destroy ï¿½V just disable so we can reuse it instantly next defend
         _shieldInstance.SetActive(false);
     }
 
