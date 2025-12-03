@@ -185,14 +185,6 @@ public class WizardCombatController : MonoBehaviour
                 firePoint.position,
                 aimRotation
             );
-
-
-            // make sure it dies after 3s (or whatever is on the prefab script)
-            var life = fb.GetComponent<FireballLifetime>();
-            if (life == null)
-            {
-                life = fb.AddComponent<FireballLifetime>();
-            }
         }
         if (_playerControl != null)
             _playerControl.EnterCombatFromAttack();

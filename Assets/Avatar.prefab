@@ -210,12 +210,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WizardCombatController
   attackAction: {fileID: 1120369429361536294, guid: 052faaac586de48259a63d0c4782560b, type: 3}
-  smallFireballPrefab: {fileID: 3367314013316085171, guid: 8b20002c2b69a9d44ab5bae8e1d923cd, type: 3}
+  smallFireballPrefab: {fileID: 5262534621397716068, guid: 62fb7531fc5ab18428475b2580c95282, type: 3}
   chargedFireballPrefab: {fileID: 2715471840370901047, guid: df9374346b76e444dbbb2b019de4da25, type: 3}
   firePoint: {fileID: 1497972770703168781}
   tapMaxDuration: 0.2
   chargeThreshold: 0.6
-  attack01Cooldown: 0.5
+  attack01Cooldown: 2
   stateAttack01: Attack01
   stateAttack02Start: Attack02Start
   stateAttack02Maintain: Attack02Maintain
@@ -256,6 +256,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e596a6587d4763a4bbcb3f89a2017d9d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AvatarSceneSpawn
+  spawnPrefix: Spawn_
+  waitForSpawnTimeout: 1
 --- !u!1 &697565512125543728
 GameObject:
   m_ObjectHideFlags: 0
