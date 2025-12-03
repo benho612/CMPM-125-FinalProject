@@ -579,6 +579,7 @@ MonoBehaviour:
     NetLOD: 4
     Frequency: 120
   Reliability: 2
+  bossController: {fileID: 0}
   warden: {fileID: 7092175253039691177}
 --- !u!114 &7270994743112571302
 MonoBehaviour:
@@ -610,8 +611,6 @@ MonoBehaviour:
   attackCadence: 2.5
   baseSeed: 1337
   difficultyScale: 1.13
-  playOfflineIfNoRoom: 0
-  net: {fileID: 0}
   muzzle: {fileID: 7733439762239541443}
   fireballPrefab: {fileID: 4202357199435486481, guid: 214a52c224b6dc54ebb0d08cc5bead1c, type: 3}
   ventPrefab: {fileID: 7016133757130324902, guid: 9b74066bdff9de940a2ca7551887abd1, type: 3}
@@ -634,6 +633,7 @@ MonoBehaviour:
   ventParent: {fileID: 0}
   ventPointsParentName: VentLocations
   limitVentPoints: 32
+  _anim: {fileID: 0}
 --- !u!1 &133440
 GameObject:
   m_ObjectHideFlags: 0

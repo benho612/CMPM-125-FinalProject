@@ -1,59 +1,51 @@
-// Assets/Bosses/EmberOvenWarden/EmberOvenWarden.cs
-using UnityEngine;
+﻿using UnityEngine;
 using System.Collections;
 using Alteruna;
 
-[RequireComponent(typeof(Animator))]
+[RequireComponent(typeof(Animator), typeof(BossNetSync))]
 public class EmberOvenWarden : BossController
 {
-    [Header("Net")]
-    public BossNetSync net; // auto-wired in Awake
-
-    [Header("Refs")]
+    [Header("References")]
     public Transform muzzle;
-    public GameObject fireballPrefab;   // requires ParabolicProjectile
-    public GameObject ventPrefab;       // requires GroundPuddle (or your vent script)
+    public GameObject fireballPrefab;
+    public GameObject ventPrefab;
     public Transform[] ventPoints;
-    public LayerMask playerMask;
+    public LayerMask playerMask = ~0;
 
-    [Header("Fireball Timing")]
-    public float aimWindup = 0.30f;       // time to face target before each shot
+    [Header("Fireball Attack")]
+    public float aimWindup = 0.30f;
     public float fireballAnimBlend = 0.05f;
-    public float fireballAnimHold = 0.18f; // brief hold so shot anim reads
-    public int totalShots = 6;             // will alternate targets if 2 players
+    public float fireballAnimHold = 0.18f;
+    public int totalShots = 6;
 
-    [Header("Vents Timing")]
+    [Header("Vents Attack")]
     public float screamBlend = 0.06f;
     public float screamWindup = 0.35f;
     public float screamOutro = 0.15f;
     public int maxVentsPerCast = 4;
 
-    [Header("Rotation / Sync")]
-    public float turnSpeedDegPerSec = 240f;     // rotate boss toward a target
-    public float yawSendThresholdDeg = 2f;      // send when host yaw changes more than this
-    public float clientYawLerpSpeed = 12f;      // client smoothing toward host yaw
+    [Header("Rotation")]
+    public float turnSpeedDegPerSec = 240f;
+    public float yawSendThresholdDeg = 2f;
+    public float clientYawLerpSpeed = 12f;
 
-    [Header("Vent Point Auto-Setup")]
+    [Header("Auto Setup")]
     public bool autoFindVentPoints = true;
-    public Transform ventParent;                       // drag "VentLocations" here (best)
-    public string ventPointsParentName = "VentLocations"; // fallback by name
+    public Transform ventParent;
+    public string ventPointsParentName = "VentLocations";
     public int limitVentPoints = 32;
 
-    // Animator hashes (only the ones we use now)
-    static readonly int IdleHash = Animator.StringToHash("Base Layer.Idle");
-    static readonly int FireballHash = Animator.StringToHash("Base Layer.Fireball Shoot");
-    static readonly int ScreamHash = Animator.StringToHash("Base Layer.Scream");
-    static readonly int MoveSpeedID = Animator.StringToHash("MoveSpeed");
+    // Animator Hashes
+    private static readonly int IdleHash = Animator.StringToHash("Base Layer.Idle");
+    private static readonly int FireballHash = Animator.StringToHash("Base Layer.Fireball Shoot");
+    private static readonly int ScreamHash = Animator.StringToHash("Base Layer.Scream");
+    private static readonly int MoveSpeedID = Animator.StringToHash("MoveSpeed");
 
-    // Attack IDs (no HeatWave anymore)
-    const int ThermalFan = 0;  // fireballs
-    const int FlareVents = 1;  // vents
-
-    Animator _anim;
-
-    // yaw replication
-    float _lastSentYaw;
-    float _targetYaw;
+    public Animator _anim;
+    private float _lastSentYaw;
+    private float _lastYawSendTime;
+    private const float YawSendInterval = 0.05f;
+    private const float YawDeltaThreshold = 0.8f;
 
     protected override void Awake()
     {
@@ -62,89 +54,61 @@ public class EmberOvenWarden : BossController
         _anim = GetComponent<Animator>();
         if (_anim) _anim.applyRootMotion = false;
 
-        if (!net) net = GetComponent<BossNetSync>();
-        if (net) net.warden = this;
+        if (net == null) net = GetComponent<BossNetSync>();
+        if (net != null) net.warden = this;
 
-        // Update visuals from health sync and death
-        health = GetComponent<BossHealth>();
-        if (health != null)
-        {
-            health.OnDeath += () =>
-            {
-                // Host triggers die animation; clients will mirror via health sync == 0
-                PlayDie();
-            };
-        }
+        if (health != null) health.OnDeath += PlayDie;
+
         if (net != null)
         {
-            net.OnHealthSync += (norm) =>
-            {
-                if (norm <= 0f)
-                {
-                    PlayDie();
-                }
-            };
+            net.OnHealthSync += (norm) => { if (norm <= 0f) PlayDie(); };
         }
 
         AutoPopulateVentPoints();
-        _targetYaw = transform.eulerAngles.y;
+        _lastSentYaw = transform.eulerAngles.y;
 
-        Debug.Log($"[Warden] Awake. ventPoints={(ventPoints != null ? ventPoints.Length : 0)}");
-
-        // Diagnostic: host sends a single test RPC to confirm delivery to clients
-        if (IsHost && net != null)
-            StartCoroutine(TestRPCOnce());
+        Debug.Log($"[EmberOvenWarden] Initialized on {(IsHost ? "HOST" : "CLIENT")} | Vents: {ventPoints?.Length ?? 0}");
     }
 
-    private void OnValidate()
-    {
-        if (autoFindVentPoints)
-            AutoPopulateVentPoints();
-    }
-
-    void Update()
+    private void Update()
     {
         if (_anim) _anim.SetFloat(MoveSpeedID, 0f);
 
         if (IsHost && fightActive)
         {
-            var t = ClosestPlayer();
-            if (t) FaceTowards(t, Time.deltaTime);
+            var target = ClosestPlayer();
+            if (target) FaceTowards(target, Time.deltaTime);
 
-            float yaw = transform.eulerAngles.y;
-            if (Mathf.Abs(Mathf.DeltaAngle(_lastSentYaw, yaw)) > yawSendThresholdDeg)
+            float currentYaw = transform.eulerAngles.y;
+            float deltaYaw = Mathf.Abs(Mathf.DeltaAngle(currentYaw, _lastSentYaw));
+
+            if (deltaYaw >= YawDeltaThreshold && Time.time - _lastYawSendTime >= YawSendInterval)
             {
-                net?.BroadcastYaw(yaw);
-                _lastSentYaw = yaw;
+                net?.BroadcastYaw(currentYaw);
+                _lastSentYaw = currentYaw;
+                _lastYawSendTime = Time.time;
             }
         }
-        else
+        else if (!IsHost && net != null)
         {
-            var e = transform.eulerAngles;
-            e.y = Mathf.LerpAngle(e.y, _targetYaw, Time.deltaTime * clientYawLerpSpeed);
-            transform.eulerAngles = e;
+            float current = transform.eulerAngles.y;
+            float targetYaw = net.LastReceivedYaw;
+            float lerped = Mathf.LerpAngle(current, targetYaw, clientYawLerpSpeed * Time.deltaTime);
+            transform.eulerAngles = new Vector3(transform.eulerAngles.x, lerped, transform.eulerAngles.z);
         }
     }
 
-    // called by BossNetSync yaw RPC
     public void LocalSetYaw(float yaw)
     {
-        _targetYaw = yaw;
-        if (!IsHost && Mathf.Abs(Mathf.DeltaAngle(transform.eulerAngles.y, yaw)) > 45f)
+        if (IsHost) return;
+        float current = transform.eulerAngles.y;
+        if (Mathf.Abs(Mathf.DeltaAngle(current, yaw)) > 30f)
             transform.eulerAngles = new Vector3(transform.eulerAngles.x, yaw, transform.eulerAngles.z);
     }
 
-    IEnumerator TestRPCOnce()
-    {
-        yield return new WaitForSeconds(1f);
-        Debug.Log("[Warden] Sending net test RPC (42)");
-        net.BroadcastTest(42);
-    }
-
-    // ---------- BossController hooks ----------
     protected override (int attackId, int seed) PickNextAttack()
     {
-        int id = RandInt(0, 2); // 0 or 1
+        int id = RandInt(0, 2);
         int seed = RandInt(0, int.MaxValue);
         return (id, seed);
     }
@@ -152,236 +116,171 @@ public class EmberOvenWarden : BossController
     protected override IEnumerator RunAttackHost(int attackId, int seed)
     {
         rng = new System.Random(seed);
-        switch (attackId)
+        return attackId switch
         {
-            case ThermalFan: yield return ThermalFanHost(); break;
-            case FlareVents: yield return FlareVentsHost(); break;
-        }
+            0 => ThermalFanHost(),
+            1 => FlareVentsHost(),
+            _ => null
+        };
     }
 
-    // ================= FIREBALLS =================
     IEnumerator ThermalFanHost()
     {
         var targets = GetTwoPlayersNearest();
-        if (targets.Length == 0 || muzzle == null || fireballPrefab == null || net == null)
-            yield break;
-
-        float perShotWindup = Mathf.Max(0.08f, aimWindup / Mathf.Max(0.1f, difficultyScale));
-        float perShotDelay = 0.45f / Mathf.Max(0.1f, difficultyScale);
+        if (targets.Length == 0 || muzzle == null || fireballPrefab == null) yield break;
 
         for (int i = 0; i < totalShots; i++)
         {
-            Transform tgt = (targets.Length > 1) ? targets[i % 2] : targets[0];
-            if (tgt == null) break;
+            var target = targets.Length > 1 ? targets[i % 2] : targets[0];
+            if (!target) continue;
 
-            yield return AimAt(tgt, perShotWindup);
+            yield return AimAt(target, aimWindup);
 
-            _anim.CrossFade(FireballHash, fireballAnimBlend, 0, 0f);
-
-            Vector3 start = muzzle.position;
-            Vector3 dest = tgt.position; dest.y = start.y;
-
-            net.BroadcastSpawnFireball(start, dest, difficultyScale);
+            // SYNC ANIMATION
+            net?.BroadcastCrossFade(FireballHash, fireballAnimBlend);
 
             yield return new WaitForSeconds(fireballAnimHold);
-            yield return new WaitForSeconds(Mathf.Max(0f, perShotDelay - fireballAnimHold));
+
+            Vector3 start = muzzle.position;
+            Vector3 dest = target.position;
+            dest.y = start.y;
+
+            net?.BroadcastSpawnFireball(start, dest, difficultyScale);
+
+            yield return new WaitForSeconds(0.35f);
         }
 
-        _anim.CrossFade(IdleHash, 0.06f);
+        // SYNC ANIMATION
+        net?.BroadcastCrossFade(IdleHash, 0.1f);
     }
 
     public void LocalSpawnFireball(Vector3 start, Vector3 dest, float speedScale)
     {
-        if (!fireballPrefab)
-        {
-            Debug.LogWarning("[Warden] LocalSpawnFireball called but fireballPrefab is NOT assigned on this instance.");
-            return;
-        }
+        if (!fireballPrefab) { Debug.LogWarning("[Warden] fireballPrefab missing!"); return; }
 
-        var go = Instantiate(fireballPrefab);
-        go.transform.position = start;
-        Debug.Log($"[Warden] LocalSpawnFireball start={start} dest={dest} scale={speedScale:0.00}");
-
+        var go = Instantiate(fireballPrefab, start, Quaternion.identity);
         var proj = go.GetComponent<ParabolicProjectile>();
-        if (proj != null)
+        if (proj)
         {
             proj.hitMask = playerMask;
-            proj.speed *= Mathf.Max(0.01f, speedScale);
+            proj.speed *= speedScale;
             proj.Launch(start, dest, hostAuth: false);
         }
     }
 
-    // ================= VENTS =================
     IEnumerator FlareVentsHost()
     {
-        _anim.CrossFade(ScreamHash, screamBlend, 0, 0f);
+        // SYNC ANIMATION
+        net?.BroadcastCrossFade(ScreamHash, screamBlend);
+
         yield return new WaitForSeconds(screamWindup);
 
-        if ((ventPoints == null || ventPoints.Length == 0) && autoFindVentPoints)
-            AutoPopulateVentPoints();
+        if (ventPrefab == null) yield break;
 
-        if (ventPrefab == null || net == null)
+        int count = Mathf.Min(maxVentsPerCast, ventPoints?.Length ?? 8);
+        for (int i = 0; i < count; i++)
         {
-            _anim.CrossFade(IdleHash, 0.06f);
-            yield break;
-        }
+            Vector3 pos = ventPoints != null && ventPoints.Length > 0
+                ? ventPoints[RandInt(0, ventPoints.Length)].position
+                : transform.position + Quaternion.Euler(0, i * (360f / count), 0) * Vector3.forward * 6f;
 
-        if (ventPoints == null || ventPoints.Length == 0)
-        {
-            // fallback ring if none found
-            Debug.LogWarning("[Warden] No ventPoints; using fallback ring.");
-            int count = Mathf.Max(1, maxVentsPerCast);
-            float radius = 6f;
-            for (int i = 0; i < count; i++)
-            {
-                float ang = (360f * i / count) * Mathf.Deg2Rad;
-                Vector3 p = transform.position + new Vector3(Mathf.Cos(ang), 0f, Mathf.Sin(ang)) * radius;
-                p.y = transform.position.y;
-                net.BroadcastSpawnVent(p, difficultyScale);
-                yield return new WaitForSeconds(0.12f);
-            }
-        }
-        else
-        {
-            int vents = Mathf.Min(ventPoints.Length, Mathf.Max(1, maxVentsPerCast));
-            for (int i = 0; i < vents; i++)
-            {
-                var t = ventPoints[RandInt(0, ventPoints.Length)];
-                if (t == null) continue;
+            pos.y = transform.position.y;
 
-                var pos = t.position;
-                if (Physics.Raycast(pos + Vector3.up * 5f, Vector3.down, out var hit, 20f))
-                    pos = hit.point;
-
-                Debug.Log($"[Warden] Casting vent at '{t.name}' -> {pos}");
-                net.BroadcastSpawnVent(pos, difficultyScale);
-                yield return new WaitForSeconds(0.12f);
-            }
+            net?.BroadcastSpawnVent(pos, difficultyScale);
+            yield return new WaitForSeconds(0.12f);
         }
 
         yield return new WaitForSeconds(screamOutro);
-        _anim.CrossFade(IdleHash, 0.06f);
+
+        // SYNC ANIMATION
+        net?.BroadcastCrossFade(IdleHash, 0.1f);
     }
 
     public void LocalSpawnVent(Vector3 pos, float scale)
     {
-        if (!ventPrefab)
-        {
-            Debug.LogWarning("[Warden] LocalSpawnVent called but ventPrefab is NOT assigned on this instance.");
-            return;
-        }
+        if (!ventPrefab) return;
 
-        var v = Instantiate(ventPrefab, pos, ventPrefab.transform.rotation);
-        Debug.Log($"[Warden] LocalSpawnVent pos={pos} scale={scale:0.00}");
-
-        var gp = v.GetComponent<GroundPuddle>(); // or your vent script
-        if (gp != null)
+        var vent = Instantiate(ventPrefab, pos, ventPrefab.transform.rotation);
+        var puddle = vent.GetComponent<GroundPuddle>();
+        if (puddle)
         {
-            gp.authoritative = false;                 // spawned via RPC on each client
-            gp.dps *= Mathf.Max(0.01f, scale);
-            gp.radius = 2f;
-            gp.lifetime = 6f;
-            gp.hitMask = playerMask;
+            puddle.authoritative = false;
+            puddle.dps *= scale;
+            puddle.radius = 2f;
+            puddle.lifetime = 6f;
+            puddle.hitMask = playerMask;
         }
     }
 
-    // ---------- helpers ----------
+    private void PlayDie()
+    {
+        // SYNC DEATH
+        net?.BroadcastTrigger("Die");
+
+        Debug.Log("[Warden] Death animation triggered.");
+    }
+
+    // Helpers (unchanged)
     void AutoPopulateVentPoints()
     {
-        if (!autoFindVentPoints) return;
-        if (ventPoints != null && ventPoints.Length > 0) return;
+        if (!autoFindVentPoints || (ventPoints != null && ventPoints.Length > 0)) return;
 
-        var found = new System.Collections.Generic.List<Transform>();
-
-        // 1) Explicit parent reference
-        Transform parentT = ventParent != null ? ventParent : null;
-
-        // 2) Fallback by name: "VentLocations"
-        if (parentT == null && !string.IsNullOrEmpty(ventPointsParentName))
+        Transform parent = ventParent;
+        if (parent == null)
         {
             var go = GameObject.Find(ventPointsParentName);
-            if (go != null) parentT = go.transform;
+            if (go) parent = go.transform;
         }
 
-        // 3) If we have a parent, collect its children
-        if (parentT != null)
+        if (parent != null)
         {
-            foreach (Transform child in parentT)
-                if (child != null) found.Add(child);
+            var list = new System.Collections.Generic.List<Transform>();
+            foreach (Transform child in parent)
+                if (child.gameObject.activeInHierarchy)
+                    list.Add(child);
+
+            if (list.Count > limitVentPoints)
+                list.RemoveRange(limitVentPoints, list.Count - limitVentPoints);
+
+            ventPoints = list.ToArray();
         }
 
-
-        // Cap and assign
-        if (found.Count > limitVentPoints)
-            found.RemoveRange(limitVentPoints, found.Count - limitVentPoints);
-
-        ventPoints = found.ToArray();
-        Debug.Log($"[Warden] AutoPopulateVentPoints -> {ventPoints.Length} points found.");
+        Debug.Log($"[Warden] Auto-found {ventPoints?.Length ?? 0} vent points.");
     }
 
-    Transform ClosestPlayer()
-    {
-        float best = 999f; Transform bestT = null;
-        foreach (var cc in FindObjectsOfType<CharacterController>())
-        {
-            float d = Vector3.Distance(transform.position, cc.transform.position);
-            if (d < best) { best = d; bestT = cc.transform; }
-        }
-        return bestT;
-    }
+    Transform ClosestPlayer() => GetTwoPlayersNearest().Length > 0 ? GetTwoPlayersNearest()[0] : null;
 
     Transform[] GetTwoPlayersNearest()
     {
-        var ccs = FindObjectsOfType<CharacterController>();
-        if (ccs == null || ccs.Length == 0) return new Transform[0];
+        var players = FindObjectsOfType<CharacterController>();
+        if (players.Length == 0) return new Transform[0];
+        if (players.Length == 1) return new Transform[] { players[0].transform };
 
-        Transform first = null, second = null;
-        float d1 = float.MaxValue, d2 = float.MaxValue;
+        System.Array.Sort(players, (a, b) =>
+            Vector3.Distance(transform.position, a.transform.position)
+                .CompareTo(Vector3.Distance(transform.position, b.transform.position)));
 
-        foreach (var cc in ccs)
-        {
-            float d = Vector3.Distance(transform.position, cc.transform.position);
-            if (d < d1) { d2 = d1; second = first; d1 = d; first = cc.transform; }
-            else if (d < d2) { d2 = d; second = cc.transform; }
-        }
-
-        if (second == null) return new Transform[] { first };
-        return new Transform[] { first, second };
-    }
-
-    Vector3 FlatDirTo(Transform t)
-    {
-        Vector3 a = transform.position; a.y = 0;
-        Vector3 b = t.position; b.y = 0;
-        var d = (b - a).normalized;
-        return d.sqrMagnitude < 0.001f ? transform.forward : d;
+        return new Transform[] { players[0].transform, players.Length > 1 ? players[1].transform : players[0].transform };
     }
 
     void FaceTowards(Transform target, float dt)
     {
-        if (!target) return;
-        var dir = FlatDirTo(target);
-        var targetRot = Quaternion.LookRotation(dir, Vector3.up);
+        Vector3 dir = target.position - transform.position;
+        dir.y = 0;
+        if (dir.sqrMagnitude < 0.1f) return;
+
+        Quaternion targetRot = Quaternion.LookRotation(dir.normalized);
         transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRot, turnSpeedDegPerSec * dt);
     }
 
-    IEnumerator AimAt(Transform t, float seconds)
+    IEnumerator AimAt(Transform t, float duration)
     {
-        float acc = 0f;
-        while (acc < seconds && t != null)
+        float elapsed = 0f;
+        while (elapsed < duration && t)
         {
-            acc += Time.deltaTime;
             FaceTowards(t, Time.deltaTime);
+            elapsed += Time.deltaTime;
             yield return null;
         }
-    }
-    // Add the missing PlayDie method to resolve the CS0103 error.
-    private void PlayDie()
-    {
-        if (_anim != null)
-        {
-            _anim.SetTrigger("Die"); // Assuming "Die" is the trigger for the death animation.
-        }
-        Debug.Log("[Warden] PlayDie called. Triggering death animation.");
     }
 }

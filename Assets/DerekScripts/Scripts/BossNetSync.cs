@@ -1,221 +1,154 @@
-using System;
-using UnityEngine;
+﻿using UnityEngine;
 using Alteruna;
-using Alteruna.Trinity; // Reader/Writer
 using System.Collections;
-using System.Collections.Generic;
 
 public class BossNetSync : Synchronizable
 {
-    [Header("Hooked at runtime (warden = your EmberOvenWarden)")]
+    [Header("Auto References")]
+    public BossController bossController;
     public EmberOvenWarden warden;
 
-    // Local events (optional UI hooks)
-    public Action<int, int> OnStartAttack;
-    public Action<int> OnPhaseChange;
-    public Action<float> OnHealthSync;
-    public Action<Vector3> OnImpactVfx;
+    public System.Action<int, int> OnStartAttack;
+    public System.Action<int> OnPhaseChange;
+    public System.Action<float> OnHealthSync;
+    public System.Action<Vector3> OnImpactVfx;
 
-    // Handshake state (host-side counter of client ready notifications)
-    [NonSerialized] public int ClientsReadyCount = 0;
-    bool _clientNotified = false;
+    public float LastReceivedYaw { get; private set; } = 0f;
 
-    // host-side set of user indices that have reported ready
-    private readonly HashSet<int> _readyUsers = new HashSet<int>();
+    Multiplayer _mp;
+    bool _registered;
 
-    void Awake()
+    private void Awake()
     {
-        if (warden == null)
-            warden = GetComponent<EmberOvenWarden>() ?? GetComponentInChildren<EmberOvenWarden>(true);
+        bossController = GetComponent<BossController>();
+        warden = GetComponent<EmberOvenWarden>() ?? GetComponentInChildren<EmberOvenWarden>();
 
-        Debug.Log($"[NetSync] Awake. Warden={(warden ? warden.name : "NULL")} (obj={gameObject.name} id={gameObject.GetInstanceID()})");
+#if UNITY_2023_1_OR_NEWER || UNITY_6000_0_OR_NEWER
+        _mp = FindFirstObjectByType<Multiplayer>(FindObjectsInactive.Include);
+#else
+        _mp = FindObjectOfType<Multiplayer>();
+#endif
 
-        var mp = FindObjectOfType<Multiplayer>();
-        bool isHost = false;
-        if (mp != null)
-        {
-            try { isHost = mp.Me != null && mp.Me.IsHost; } catch { }
-            if (!isHost)
-            {
-                try { var u = mp.GetUser(); if (u != null) isHost = u.IsHost; } catch { }
-            }
-        }
-
-        if (!isHost)
-        {
-            StartCoroutine(NotifyHostReadyWhenRegistered());
-        }
+        // IMPORTANT: do not self-register here for spawned objects.
+        // Registration will be:
+        // - auto-done by Alteruna for network-spawned prefabs
+        // - explicitly done by the host in BossSceneBootstrap
+        Debug.Log($"[BossNetSync] Awake on {(TryIsHost(_mp) ? "HOST" : "CLIENT")} (Object='{gameObject.name}')");
     }
 
-    // Fix for CS1061: Replace the problematic line with a check for the correct property or method in the Multiplayer class.
-    // Based on the provided type signature, the `Room` property does not exist in the `Multiplayer` class.
-    // Instead, we can use the `InRoom` property to check if the player is in a room.
-
-    private IEnumerator NotifyHostReadyWhenRegistered()
+    private void OnEnable()
     {
-        var mp = FindObjectOfType<Multiplayer>();
+        // If we got enabled after Multiplayer was ready, ensure we are registered.
+        if (!_registered)
+            StartCoroutine(WaitAndRegister());
+    }
 
-        // Wait until Multiplayer exists and we are in a room
-        while (mp == null || !mp.InRoom)
+    IEnumerator WaitAndRegister()
+    {
+        // Wait for Multiplayer to exist
+        while (_mp == null)
         {
-            mp = FindObjectOfType<Multiplayer>();
+#if UNITY_2023_1_OR_NEWER || UNITY_6000_0_OR_NEWER
+            _mp = FindFirstObjectByType<Multiplayer>(FindObjectsInactive.Include);
+#else
+            _mp = FindObjectOfType<Multiplayer>();
+#endif
             yield return null;
         }
 
-        // Small extra delay to ensure this Synchronizable is fully registered
-        yield return new WaitForSeconds(0.5f);
+        // Optional: wait for a room/session connection (some Alteruna SDKs expose states differently)
+        // We defensively wait a few frames to let Synchronizable system initialize.
+        for (int i = 0; i < 5; i++) yield return null;
 
-        if (_clientNotified) yield break;
-
-        try
+        if (!_registered)
         {
-            int userIndex = -1;
-            try { userIndex = mp?.GetUser()?.Index ?? mp?.Me?.Index ?? -1; } catch { }
+            Register();
+            _registered = true;
 
-            Debug.Log($"[NetSync] Client notifying host: RPC_ClientReady (obj={gameObject.name} id={gameObject.GetInstanceID()}) sending userIndex={userIndex}");
-            BroadcastRemoteMethod(nameof(RPC_ClientReady), userIndex);
-            _clientNotified = true;
-            Debug.Log("[NetSync] Client-ready broadcast sent.");
-        }
-        catch (Exception ex)
-        {
-            Debug.LogWarning($"[NetSync] Failed to broadcast client-ready: {ex.Message}. Will retry once shortly.");
-            StartCoroutine(RetryNotifyHostReady());
+            // Force immediate commit so this Synchronizable obtains a network ID replicated across peers.
+            Commit();
+
+            bool isHost = false;
+            try { isHost = _mp.Me.IsHost; } catch { try { isHost = (_mp.GetUser().Index == 0); } catch { } }
+            Debug.Log($"[BossNetSync] Registered and committed on {(isHost ? "HOST" : "CLIENT")} (Object='{gameObject.name}')");
         }
     }
 
-    private IEnumerator RetryNotifyHostReady()
+    static bool TryIsHost(Multiplayer mp)
     {
-        yield return new WaitForSeconds(0.5f);
-        try
-        {
-            var mp = FindObjectOfType<Multiplayer>();
-            int userIndex = -1;
-            try { userIndex = mp?.GetUser()?.Index ?? mp?.Me?.Index ?? -1; } catch { }
-
-            Debug.Log($"[NetSync] Client retry notifying host: RPC_ClientReady userIndex={userIndex}");
-            BroadcastRemoteMethod(nameof(RPC_ClientReady), userIndex);
-            _clientNotified = true;
-            Debug.Log("[NetSync] Client-ready broadcast sent on retry.");
-        }
-        catch (Exception ex2)
-        {
-            Debug.LogWarning($"[NetSync] Retry failed: {ex2.Message}");
-        }
+        if (mp == null) return false;
+        try { return mp.Me.IsHost; } catch { }
+        try { return mp.GetUser().Index == 0; } catch { }
+        return false;
     }
 
-    // --- Required (no state to sync) ---
     public override void AssembleData(Writer writer, byte LOD = 100) { }
     public override void DisassembleData(Reader reader, byte LOD = 100) { }
 
-    // ========== GENERIC EVENTS (optional) ==========
-    public void BroadcastStartAttack(int attackId, int seed)
-    {
-        Debug.Log($"[NetSync] BroadcastStartAttack id={attackId} seed={seed}");
-        BroadcastRemoteMethod(nameof(RPC_StartAttack), attackId, seed);
-        OnStartAttack?.Invoke(attackId, seed);
-    }
-    [SynchronizableMethod] public void RPC_StartAttack(int id, int seed) { OnStartAttack?.Invoke(id, seed); }
+    // TEST RPC
+    public void BroadcastTest(int v) => BroadcastRemoteMethod(nameof(RPC_Test), v);
+    [SynchronizableMethod] public void RPC_Test(int v) => Debug.Log($"[BossNetSync] TEST RPC WORKS! Value = {v} → CLIENT SYNCED!");
 
-    public void BroadcastPhase(int phase)
+    // ANIMATION SYNC
+    public void BroadcastCrossFade(int hash, float blend) => BroadcastRemoteMethod(nameof(RPC_CrossFade), hash, blend);
+    [SynchronizableMethod]
+    public void RPC_CrossFade(int hash, float blend)
     {
-        Debug.Log($"[NetSync] BroadcastPhase {phase}");
-        BroadcastRemoteMethod(nameof(RPC_Phase), phase);
-        OnPhaseChange?.Invoke(phase);
+        if (warden?._anim != null) warden._anim.CrossFade(hash, blend);
+        Debug.Log($"[BossNetSync] RPC_CrossFade received: hash = {hash}, blend = {blend}");
     }
-    [SynchronizableMethod] public void RPC_Phase(int p) { OnPhaseChange?.Invoke(p); }
 
-    public void BroadcastHealth(float n)
+    public void BroadcastTrigger(string trigger) => BroadcastRemoteMethod(nameof(RPC_Trigger), trigger);
+    [SynchronizableMethod]
+    public void RPC_Trigger(string trigger)
     {
-        Debug.Log($"[NetSync] BroadcastHealth {n:0.000}");
-        BroadcastRemoteMethod(nameof(RPC_Health), n);
-        OnHealthSync?.Invoke(n);
+        if (warden?._anim != null) warden._anim.SetTrigger(trigger);
+        Debug.Log($"[BossNetSync] RPC_Trigger received: {trigger}");
     }
-    [SynchronizableMethod] public void RPC_Health(float n) { OnHealthSync?.Invoke(n); }
 
-    public void BroadcastImpact(Vector3 pos)
-    {
-        Debug.Log($"[NetSync] BroadcastImpact {pos}");
-        BroadcastRemoteMethod(nameof(RPC_Impact), pos);
-        OnImpactVfx?.Invoke(pos);
-    }
-    [SynchronizableMethod] public void RPC_Impact(Vector3 p) { OnImpactVfx?.Invoke(p); }
-
-    // ========= YAW REPLICATION =========
+    // YAW SYNC
     public void BroadcastYaw(float yaw)
     {
+        LastReceivedYaw = yaw;
         BroadcastRemoteMethod(nameof(RPC_SetYaw), yaw);
-        if (warden != null) warden.LocalSetYaw(yaw);
-        Debug.Log($"[NetSync] BroadcastYaw -> {yaw:0.0}");
     }
     [SynchronizableMethod]
     public void RPC_SetYaw(float yaw)
     {
-        if (warden != null) warden.LocalSetYaw(yaw);
-        Debug.Log($"[NetSync] RPC_SetYaw -> {yaw:0.0}");
+        LastReceivedYaw = yaw;
+        warden?.LocalSetYaw(yaw);
+        Debug.Log($"[BossNetSync] RPC_SetYaw received: {yaw}");
     }
 
-    // ========= FIREBALL SPAWN =========
-    public void BroadcastSpawnFireball(Vector3 start, Vector3 dest, float speedScale)
-    {
-        Debug.Log($"[NetSync] BroadcastSpawnFireball start={start} dest={dest} scale={speedScale:0.00}");
-        BroadcastRemoteMethod(nameof(RPC_SpawnFireball), start, dest, speedScale);
-        if (warden != null) warden.LocalSpawnFireball(start, dest, speedScale);
-    }
+    // SPAWN SYNC
+    public void BroadcastSpawnFireball(Vector3 start, Vector3 dest, float scale)
+        => BroadcastRemoteMethod(nameof(RPC_SpawnFireball), start, dest, scale);
     [SynchronizableMethod]
-    public void RPC_SpawnFireball(Vector3 start, Vector3 dest, float speedScale)
+    public void RPC_SpawnFireball(Vector3 s, Vector3 d, float sc)
     {
-        if (warden != null) warden.LocalSpawnFireball(start, dest, speedScale);
-        Debug.Log($"[NetSync] RPC_SpawnFireball start={start} dest={dest} scale={speedScale:0.00}");
+        warden?.LocalSpawnFireball(s, d, sc);
+        Debug.Log($"[BossNetSync] RPC_SpawnFireball received: start = {s}, dest = {d}, scale = {sc}");
     }
 
-    // ========= VENT SPAWN =========
     public void BroadcastSpawnVent(Vector3 pos, float scale)
-    {
-        Debug.Log($"[NetSync] BroadcastSpawnVent pos={pos} scale={scale:0.00}");
-        BroadcastRemoteMethod(nameof(RPC_SpawnVent), pos, scale);
-        if (warden != null) warden.LocalSpawnVent(pos, scale);
-    }
+        => BroadcastRemoteMethod(nameof(RPC_SpawnVent), pos, scale);
     [SynchronizableMethod]
-    public void RPC_SpawnVent(Vector3 pos, float scale)
+    public void RPC_SpawnVent(Vector3 p, float sc)
     {
-        if (warden != null) warden.LocalSpawnVent(pos, scale);
-        Debug.Log($"[NetSync] RPC_SpawnVent pos={pos} scale={scale:0.00}");
+        warden?.LocalSpawnVent(p, sc);
+        Debug.Log($"[BossNetSync] RPC_SpawnVent received: pos = {p}, scale = {sc}");
     }
 
-    // ======= DIAGNOSTIC TEST RPC =======
-    public void BroadcastTest(int n)
-    {
-        Debug.Log($"[NetSync] BroadcastTest -> {n}");
-        BroadcastRemoteMethod(nameof(RPC_Test), n);
-    }
+    // OTHER RPCs
+    public void BroadcastStartAttack(int id, int seed) => BroadcastRemoteMethod(nameof(RPC_StartAttack), id, seed);
+    [SynchronizableMethod] void RPC_StartAttack(int id, int seed) => OnStartAttack?.Invoke(id, seed);
 
-    [SynchronizableMethod]
-    public void RPC_Test(int n)
-    {
-        Debug.Log($"[NetSync] RPC_Test received -> {n} (obj={gameObject.name} id={gameObject.GetInstanceID()})");
-    }
+    public void BroadcastPhase(int p) => BroadcastRemoteMethod(nameof(RPC_Phase), p);
+    [SynchronizableMethod] void RPC_Phase(int p) => OnPhaseChange?.Invoke(p);
 
-    // ======= CLIENT READY RPC =======
-    [SynchronizableMethod]
-    public void RPC_ClientReady(int userIndex)
-    {
-        Debug.Log($"[NetSync] RPC_ClientReady received on object '{gameObject.name}' (id={gameObject.GetInstanceID()}) from userIndex={userIndex}");
+    public void BroadcastHealth(float n) => BroadcastRemoteMethod(nameof(RPC_Health), n);
+    [SynchronizableMethod] void RPC_Health(float n) => OnHealthSync?.Invoke(n);
 
-        if (userIndex < 0)
-        {
-            Debug.LogWarning("[NetSync] RPC_ClientReady: received invalid userIndex.");
-            return;
-        }
-
-        if (_readyUsers.Add(userIndex))
-        {
-            ClientsReadyCount = _readyUsers.Count;
-            Debug.Log($"[NetSync] New client-ready registered for user {userIndex}. ClientsReadyCount={ClientsReadyCount}");
-        }
-        else
-        {
-            Debug.Log($"[NetSync] Duplicate client-ready received for user {userIndex} (ignored).");
-        }
-    }
+    public void BroadcastImpact(Vector3 p) => BroadcastRemoteMethod(nameof(RPC_Impact), p);
+    [SynchronizableMethod] void RPC_Impact(Vector3 p) => OnImpactVfx?.Invoke(p);
 }
