@@ -45,9 +45,6 @@ public class WarriorCombatController : MonoBehaviour
     Transform _slashSpawnPoint;
 
     [Header("Shield VFX")]
-    [Tooltip("Point on the character where the shield effect should appear (e.g. an empty under the shield).")]
-    public Transform shieldPoint;
-
     [Tooltip("Prefab for the shield visual effect.")]
     public GameObject shieldVfxPrefab;
 
@@ -87,15 +84,6 @@ public class WarriorCombatController : MonoBehaviour
         _boss = FindObjectOfType<BossHealth>();
 
         int id = CharacterDatabase.SelectedCharacterID;
-
-        if (shieldPoint == null)
-        {
-            // Try male first (Shield08), then female (Shield05)
-            shieldPoint = FindChildByName(transform, "Shield08");
-
-            if (shieldPoint == null)
-                shieldPoint = FindChildByName(transform, "Shield05");
-        }
 
         foreach (var t in GetComponentsInChildren<Transform>(true))
         {
@@ -310,7 +298,7 @@ public class WarriorCombatController : MonoBehaviour
         else if (rightDown && _isDefending)
         {
             // Still defending – just make sure the VFX is alive
-            if (_shieldInstance == null && shieldVfxPrefab != null && shieldPoint != null)
+            if (_shieldInstance == null && shieldVfxPrefab != null )
             {
                 ShowShieldVfx();
             }
@@ -359,7 +347,7 @@ public class WarriorCombatController : MonoBehaviour
 
     void ShowShieldVfx()
     {
-        if (shieldVfxPrefab == null || shieldPoint == null)
+        if (shieldVfxPrefab == null)
             return;
 
         if (_shieldInstance != null)
@@ -368,10 +356,15 @@ public class WarriorCombatController : MonoBehaviour
             return;
         }
 
-        Vector3 spawnPos = shieldPoint.position + shieldPoint.forward * shieldForwardOffset;
-        Quaternion rot = Quaternion.LookRotation(shieldPoint.forward, Vector3.up);
-        _shieldInstance = Instantiate(shieldVfxPrefab, spawnPos, rot);
-        _shieldInstance.transform.SetParent(shieldPoint, worldPositionStays: true);
+        // Spawn directly at player center (no need for shieldPoint)
+        Vector3 spawnPos = transform.position;
+
+        // Keep rotation identity so the sphere looks correct
+        Quaternion rot = Quaternion.identity;
+
+        // Parent to the player root so it follows the whole character
+        _shieldInstance = Instantiate(shieldVfxPrefab, spawnPos, rot, transform);
+
     }
 
     void HideShieldVfx()
