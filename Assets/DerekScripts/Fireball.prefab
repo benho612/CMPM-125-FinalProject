@@ -31,7 +31,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 2.36958, y: -0, z: -1.95059}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 2, y: 2, z: 2}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -125,15 +125,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 80925285c5b23954199d99609d8773ed, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ParabolicProjectile
-  speed: 12
+  speed: 7
   arcHeight: 3
-  radius: 0.6
-  damage: 12
+  radius: 1
+  damage: 5
   lifetime: 8
   hitMask:
     serializedVersion: 2
     m_Bits: 64
+  groundMask:
+    serializedVersion: 2
+    m_Bits: 128
   authoritative: 1
+  impactVfx: {fileID: 0}
+  verbose: 1
 --- !u!96 &8158769819073374117
 TrailRenderer:
   serializedVersion: 3

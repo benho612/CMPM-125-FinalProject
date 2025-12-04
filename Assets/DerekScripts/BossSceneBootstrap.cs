@@ -1,22 +1,28 @@
-﻿using UnityEngine;
+﻿using System.Collections;
+using UnityEngine;
 using Alteruna;
-using System.Collections;
 
 public class BossSceneBootstrap : MonoBehaviour
 {
+    [Header("Spawner settings")]
+    [SerializeField] private Spawner spawner;
     [SerializeField] private int bossPrefabIndex = 0;
-    [SerializeField] private Transform bossSpawn;
+    [SerializeField] private Transform bossSpawnPoint;
 
-    [SerializeField] private float spawnDelay = 1.5f;
-    [SerializeField] private int fightSeed = -1; // -1 = random
+    [Header("Start timing")]
+    [SerializeField] private int expectedPlayers = 2;      // set 0 to skip waiting
+    [SerializeField] private float maxWaitSeconds = 10f;
+    [SerializeField] private float startFightDelay = 0.75f;
+
+    [Header("Debug")]
+    [SerializeField] private bool runTestRpcBurst = true;
 
     private Multiplayer multiplayer;
-    private Spawner spawner;
 
     private void Awake()
     {
+        if (spawner == null) spawner = FindObjectOfType<Spawner>();
         multiplayer = FindObjectOfType<Multiplayer>();
-        spawner = FindObjectOfType<Spawner>();
     }
 
     private void Start()
@@ -24,82 +30,66 @@ public class BossSceneBootstrap : MonoBehaviour
         StartCoroutine(BootstrapRoutine());
     }
 
+    private bool IsHost()
+    {
+        return multiplayer != null && multiplayer.Me != null && multiplayer.Me.IsHost;
+    }
+
     private IEnumerator BootstrapRoutine()
     {
-        // Wait for Multiplayer and Spawner to exist
-        while (multiplayer == null || spawner == null)
-        {
-            multiplayer = FindObjectOfType<Multiplayer>();
-            spawner = FindObjectOfType<Spawner>();
-            yield return null;
-        }
+        if (multiplayer == null) multiplayer = FindObjectOfType<Multiplayer>();
+        if (spawner == null) spawner = FindObjectOfType<Spawner>();
 
-        // Wait until we have a local user (Me) known by the SDK
-        Alteruna.User me = null;
-        int safety = 0;
-        while (me == null && safety++ < 300) // ~5s at 60fps
-        {
-            try { me = multiplayer.Me; } catch { /* SDK may throw until ready */ }
-            yield return null;
-        }
-
-        if (me == null)
-        {
-            Debug.LogError("[BossBootstrap] Multiplayer.Me not available; aborting boss spawn.");
-            yield break;
-        }
-
-        // Host-only spawns the boss (networked)
-        bool isHost = false;
-        try { isHost = me.IsHost; } catch { isHost = (me.Index == 0); }
-
-        if (!isHost)
+        if (!IsHost())
         {
             Debug.Log("[BossBootstrap] Client detected; boss will be received via network spawn.");
             yield break;
         }
 
-        yield return new WaitForSeconds(spawnDelay);
-
-        Vector3 pos = bossSpawn ? bossSpawn.position : Vector3.zero;
-        Quaternion rot = bossSpawn ? bossSpawn.rotation : Quaternion.identity;
-
-        // Network instantiate through Alteruna Spawner so all peers receive the same object
-        GameObject bossObj = spawner.Spawn(bossPrefabIndex, pos, rot);
-        if (!bossObj)
+        // Wait for players/avatars so clients don’t miss early RPCs.
+        float t = 0f;
+        while (expectedPlayers > 0 && CountAvatars() < expectedPlayers && t < maxWaitSeconds)
         {
-            Debug.LogError("[BossBootstrap] Spawn failed.");
+            t += Time.deltaTime;
+            yield return null;
+        }
+        Debug.Log($"[BossBootstrap] Avatars={CountAvatars()} target={expectedPlayers} (waited {t:0.0}s).");
+
+        if (bossSpawnPoint == null)
+        {
+            Debug.LogError("[BossBootstrap] Missing bossSpawnPoint.");
             yield break;
         }
 
-        var netSync = bossObj.GetComponent<BossNetSync>();
-        var ctrl = bossObj.GetComponent<BossController>();
+        Debug.Log($"[BossBootstrap] Spawning boss via Spawner index={bossPrefabIndex}");
+        spawner.Spawn(bossPrefabIndex, bossSpawnPoint.position, bossSpawnPoint.rotation);
 
-        if (!netSync || !ctrl)
+        // Give Alteruna a moment to finish registration across peers.
+        yield return new WaitForSeconds(startFightDelay);
+
+        var bossNet = FindObjectOfType<BossNetSync>();
+        var bossController = FindObjectOfType<BossController>();
+
+        if (bossNet == null || bossController == null)
         {
-            Debug.LogError("[BossBootstrap] Boss is missing BossNetSync or BossController components.");
+            Debug.LogError($"[BossBootstrap] Missing bossNet/bossController after spawn. bossNet={(bossNet ? "OK" : "NULL")} bossController={(bossController ? "OK" : "NULL")}");
             yield break;
         }
 
-        // Host-only explicit registration (safe for older Alteruna versions). Clients must not register.
-        try
-        {
-            multiplayer.RegisterSynchronizable(netSync);
-            Debug.Log("[BossBootstrap] RegisterSynchronizable called for BossNetSync (HOST).");
-        }
-        catch
-        {
-            // Ignore if not required.
-        }
+        // IMPORTANT: DO NOT call RegisterSynchronizable here.
+        // Spawner/network spawn already registers it. Manual registration causes the “already registered” warning
+        // and can break RPC routing.
 
-        // Give clients time to receive the boss
-        yield return new WaitForSeconds(1.0f);
 
-        // Smoke test RPC path
-        netSync.BroadcastTest(77777777);
 
-        int seed = fightSeed >= 0 ? fightSeed : Random.Range(0, int.MaxValue);
-        ctrl.StartFight(seed);
+        int seed = Random.Range(int.MinValue, int.MaxValue);
+        bossController.StartFight(seed);
         Debug.Log($"[BossBootstrap] Fight started with seed {seed} on HOST.");
+    }
+
+    private int CountAvatars()
+    {
+        // Works even if Alteruna changes room/user APIs.
+        return FindObjectsOfType<Alteruna.Avatar>().Length;
     }
 }

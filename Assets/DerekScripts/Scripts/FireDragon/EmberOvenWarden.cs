@@ -38,6 +38,9 @@ public class EmberOvenWarden : BossController
     // Animator Hashes
     private static readonly int IdleHash = Animator.StringToHash("Base Layer.Idle");
     private static readonly int FireballHash = Animator.StringToHash("Base Layer.Fireball Shoot");
+
+    // With this corrected line:
+    bool isHost = Alteruna.Multiplayer.Instance != null && Alteruna.Multiplayer.Instance.Me != null && Alteruna.Multiplayer.Instance.Me.IsHost;
     private static readonly int ScreamHash = Animator.StringToHash("Base Layer.Scream");
     private static readonly int MoveSpeedID = Animator.StringToHash("MoveSpeed");
 
@@ -47,9 +50,14 @@ public class EmberOvenWarden : BossController
     private const float YawSendInterval = 0.05f;
     private const float YawDeltaThreshold = 0.8f;
 
+    bool IsHost => Alteruna.Multiplayer.Instance != null && Alteruna.Multiplayer.Instance.Me != null && Alteruna.Multiplayer.Instance.Me.IsHost;
+
     protected override void Awake()
     {
         base.Awake();
+
+        if (multiplayer == null)
+            multiplayer = FindObjectOfType<Multiplayer>();
 
         _anim = GetComponent<Animator>();
         if (_anim) _anim.applyRootMotion = false;
@@ -57,17 +65,10 @@ public class EmberOvenWarden : BossController
         if (net == null) net = GetComponent<BossNetSync>();
         if (net != null) net.warden = this;
 
-        if (health != null) health.OnDeath += PlayDie;
-
-        if (net != null)
-        {
-            net.OnHealthSync += (norm) => { if (norm <= 0f) PlayDie(); };
-        }
-
         AutoPopulateVentPoints();
         _lastSentYaw = transform.eulerAngles.y;
 
-        Debug.Log($"[EmberOvenWarden] Initialized on {(IsHost ? "HOST" : "CLIENT")} | Vents: {ventPoints?.Length ?? 0}");
+        Debug.Log($"[EmberOvenWarden] Awake on {(IsHost ? "HOST" : "CLIENT")} | obj='{gameObject.name}' | hasNetSync={(GetComponent<BossNetSync>() != null)}");
     }
 
     private void Update()
@@ -84,7 +85,7 @@ public class EmberOvenWarden : BossController
 
             if (deltaYaw >= YawDeltaThreshold && Time.time - _lastYawSendTime >= YawSendInterval)
             {
-                net?.BroadcastYaw(currentYaw);
+                if (net != null) net.BroadcastYaw(currentYaw);
                 _lastSentYaw = currentYaw;
                 _lastYawSendTime = Time.time;
             }
@@ -136,22 +137,23 @@ public class EmberOvenWarden : BossController
 
             yield return AimAt(target, aimWindup);
 
-            // SYNC ANIMATION
-            net?.BroadcastCrossFade(FireballHash, fireballAnimBlend);
-
+            if (net != null) net.BroadcastCrossFade(FireballHash, fireballAnimBlend);
             yield return new WaitForSeconds(fireballAnimHold);
 
             Vector3 start = muzzle.position;
+
+            // Aim at ground beneath the target (prevents mid-air despawn)
             Vector3 dest = target.position;
-            dest.y = start.y;
+            if (Physics.Raycast(dest + Vector3.up * 2f, Vector3.down, out var groundHit, 100f, LayerMask.GetMask("Default", "Terrain"), QueryTriggerInteraction.Ignore))
+                dest = groundHit.point;
+            else
+                dest.y = transform.position.y;
 
-            net?.BroadcastSpawnFireball(start, dest, difficultyScale);
-
+            if (net != null) net.BroadcastSpawnFireball(start, dest, difficultyScale);
             yield return new WaitForSeconds(0.35f);
         }
 
-        // SYNC ANIMATION
-        net?.BroadcastCrossFade(IdleHash, 0.1f);
+        if (net != null) net.BroadcastCrossFade(IdleHash, 0.1f);
     }
 
     public void LocalSpawnFireball(Vector3 start, Vector3 dest, float speedScale)
@@ -162,17 +164,24 @@ public class EmberOvenWarden : BossController
         var proj = go.GetComponent<ParabolicProjectile>();
         if (proj)
         {
-            proj.hitMask = playerMask;
+            proj.hitMask = playerMask;                         // already confirmed matches players
+            proj.groundMask = LayerMask.GetMask("Default", "Terrain");
+            proj.radius = Mathf.Max(proj.radius, 1.2f);        // bump radius to match HurtBox scale
             proj.speed *= speedScale;
-            proj.Launch(start, dest, hostAuth: false);
+            proj.verbose = IsHost;
+
+            bool hostAuth = IsHost;
+            proj.Launch(start, dest, hostAuth);
+        }
+        else
+        {
+            Debug.LogWarning("[Warden] Fireball prefab missing ParabolicProjectile component.");
         }
     }
 
     IEnumerator FlareVentsHost()
     {
-        // SYNC ANIMATION
-        net?.BroadcastCrossFade(ScreamHash, screamBlend);
-
+        if (net != null) net.BroadcastCrossFade(ScreamHash, screamBlend);
         yield return new WaitForSeconds(screamWindup);
 
         if (ventPrefab == null) yield break;
@@ -186,21 +195,19 @@ public class EmberOvenWarden : BossController
 
             pos.y = transform.position.y;
 
-            net?.BroadcastSpawnVent(pos, difficultyScale);
+            if (net != null) net.BroadcastSpawnVent(pos, difficultyScale);
             yield return new WaitForSeconds(0.12f);
         }
 
         yield return new WaitForSeconds(screamOutro);
-
-        // SYNC ANIMATION
-        net?.BroadcastCrossFade(IdleHash, 0.1f);
+        if (net != null) net.BroadcastCrossFade(IdleHash, 0.1f);
     }
 
     public void LocalSpawnVent(Vector3 pos, float scale)
     {
         if (!ventPrefab) return;
 
-        var vent = Instantiate(ventPrefab, pos, ventPrefab.transform.rotation);
+        var vent = Instantiate(ventPrefab, pos, Quaternion.identity);
         var puddle = vent.GetComponent<GroundPuddle>();
         if (puddle)
         {
@@ -210,17 +217,22 @@ public class EmberOvenWarden : BossController
             puddle.lifetime = 6f;
             puddle.hitMask = playerMask;
         }
+
+        var gp = vent.GetComponent<GroundPuddle>();
+        if (gp != null)
+        {
+            bool isServer = Alteruna.Multiplayer.Instance != null && Alteruna.Multiplayer.Instance.Me != null && Alteruna.Multiplayer.Instance.Me.IsHost;
+            gp.authoritative = isServer;
+
+            // Ensure the mask targets Player layer (index/name may vary).
+            gp.hitMask = LayerMask.GetMask("Player");
+
+            if (gp.verbose)
+                Debug.Log($"[EmberOvenWarden] Spawned VentPuddle. isServer={isServer}, authoritative={gp.authoritative}, hitMask={gp.hitMask.value}");
+        }
     }
 
-    private void PlayDie()
-    {
-        // SYNC DEATH
-        net?.BroadcastTrigger("Die");
-
-        Debug.Log("[Warden] Death animation triggered.");
-    }
-
-    // Helpers (unchanged)
+    // Helpers
     void AutoPopulateVentPoints()
     {
         if (!autoFindVentPoints || (ventPoints != null && ventPoints.Length > 0)) return;

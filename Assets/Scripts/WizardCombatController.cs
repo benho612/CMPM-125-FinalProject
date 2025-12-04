@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// Wizard-only combat controller (fireball + charge spell).
+/// Wizard-only combat controller (fireball + charge spell + roll).
 /// Attach to Avatar root next to PlayerControl.
 /// Only active when CharacterDatabase.SelectedCharacterID == 0 (wizard).
 /// </summary>
@@ -15,20 +15,22 @@ public class WizardCombatController : MonoBehaviour
 
     [Header("Fireball Prefabs")]
     public GameObject smallFireballPrefab;   // tap shot
-    public GameObject chargedFireballPrefab; // charged shot
-
-    [Tooltip("Where fireballs spawn (tip of staff).")]
     public Transform firePoint;
 
     [Header("Tap vs Hold Settings")]
-    [Tooltip("Max hold time to count as a 'tap' (seconds).")]
     public float tapMaxDuration = 0.20f;
-
-    [Tooltip("Time after which we consider the spell 'charged'.")]
     public float chargeThreshold = 0.60f;
-
-    [Tooltip("Cooldown for the small tap fireball.")]
     public float attack01Cooldown = 0.5f;
+
+    [Header("Damage")]
+    [Tooltip("Damage dealt by the wizard's tap fireball.")]
+    public float tapFireballDamage = 50f;
+
+    [Tooltip("Maximum hitscan distance for tap fireball.")]
+    public float tapFireballRange = 20f;
+
+    [Tooltip("Radius used to validate a boss hit near the ray impact point.")]
+    public float bossHitRadius = 0.9f;
 
     [Header("Animation state names")]
     public string stateAttack01 = "Attack01";
@@ -36,27 +38,61 @@ public class WizardCombatController : MonoBehaviour
     public string stateAttack02Maintain = "Attack02Maintain";
     public string stateBattleIdle = "Battle_Idle";
 
+    [Header("Roll Settings")]
+    public float rollLockDuration = 0.7f;
+    public string stateRollForward = "RollForward";
+    public string stateRollBackward = "RollBackward";
+    public string stateRollLeft = "RollLeft";
+    public string stateRollRight = "RollRight";
+
     [Header("Animator parameter names")]
     public string paramIsChanneling = "IsChanneling";
     public string paramInCombat = "InCombat";
 
-    [Header("Attack Controller")]
     private Camera playerCamera;
 
+    [Header("Meteor AOE")]
+    [Tooltip("Prefab for the final Meteor AOE effect.")]
+    public GameObject meteorAoePrefab;
 
+    [Tooltip("Prefab for the ground indicator while aiming.")]
+    public GameObject meteorIndicatorPrefab;
+
+    [Tooltip("Layers the ground raycast can hit (e.g., Ground).")]
+    public LayerMask groundMask = ~0;   // everything by default
+
+    [Tooltip("Max aiming distance for the meteor.")]
+    public float maxAimDistance = 30f;
+
+    [Header("Audio")]
+    [Tooltip("One-shot SFX (tap fireball, meteor release).")]
+    public AudioSource oneShotSource;
+
+    public AudioClip leftClickClip;      // tap attack
+    public AudioClip meteorReleaseClip;  // AOE release
+    public float oneShotVolume = 1f;
+
+    [Header("Channel Audio")]
+    [Tooltip("Looping source for channel/aiming SFX.")]
+    public AudioSource channelSource;
+    public AudioClip channelLoopClip;
+    public float channelVolume = 1f;
 
     // ---- runtime ----
     private PlayerControl _playerControl;
     private Animator _animator;
     private Alteruna.Avatar _avatar;
 
-    private bool _isHoldingAttack = false;
+    private bool _isAiming = false;
+    private GameObject _currentIndicator;
     private bool _isChanneling = false;
-    private float _holdTime = 0f;
     private float _lastAttack01Time = -999f;
 
     private int _hashIsChanneling;
     private int _hashInCombat;
+
+    // Cached boss reference for quick damage routing
+    private BossHealth _boss;
 
     void Awake()
     {
@@ -95,17 +131,30 @@ public class WizardCombatController : MonoBehaviour
             playerCamera = GetComponentInChildren<Camera>(true);
 
             if (playerCamera == null)
-            {
-                // Optional fallback if camera is on a deeper child
                 playerCamera = transform.GetComponentInChildren<Camera>(true);
-            }
 
             if (playerCamera == null)
-            {
                 Debug.LogWarning("WizardCombatController: No camera found in this avatar!");
-            }
         }
 
+        if (oneShotSource == null)
+        {
+            oneShotSource = gameObject.AddComponent<AudioSource>();
+            oneShotSource.playOnAwake = false;
+            oneShotSource.loop = false;
+            oneShotSource.spatialBlend = 0f; // 2D, always audible
+        }
+
+        if (channelSource == null)
+        {
+            channelSource = gameObject.AddComponent<AudioSource>();
+            channelSource.playOnAwake = false;
+            channelSource.loop = true;       // this one will loop
+            channelSource.spatialBlend = 0f;
+        }
+
+        // Cache boss reference
+        _boss = FindObjectOfType<BossHealth>();
     }
 
     void Update()
@@ -114,120 +163,242 @@ public class WizardCombatController : MonoBehaviour
         if (_avatar != null && !_avatar.IsMe)
             return;
 
-        if (attackAction == null || _animator == null)
+        if (_animator == null)
+            return;
+
+        HandleRoll();
+
+        if (_playerControl != null && _playerControl.IsRolling)
+            return;
+
+        HandleAimAndMeteor();
+
+        if (_isAiming || _isChanneling)
+            return;
+
+        if (attackAction == null)
             return;
 
         var attack = attackAction.action;
 
-        // --- press ---
         if (attack.WasPressedThisFrame())
         {
-            _isHoldingAttack = true;
-            _holdTime = 0f;
-        }
-
-        // --- while held ---
-        if (_isHoldingAttack)
-        {
-            _holdTime += Time.deltaTime;
-
-            // when crossing charge threshold, start channeling
-            if (!_isChanneling && _holdTime >= chargeThreshold)
-                BeginChannel();
-        }
-
-        // --- release ---
-        if (attack.WasReleasedThisFrame())
-        {
-            if (_isChanneling)
-            {
-                // release after charge �� fire big spell
-                EndChannelAndFireCharged();
-            }
-            else
-            {
-                // short tap �� quick Attack01 (if not on cooldown)
-                TryTapFireball();
+            TryTapFireball();
                 var c = GetComponent<CookingPhaseManager>();
                 if (c != null && c.CurrentMiniGame != null)
                 {
                     c.CurrentMiniGame.OnPlayerPrimaryAction();
                     return; 
                 }
-
-            }
-
-            _isHoldingAttack = false;
-            _holdTime = 0f;
         }
     }
 
-    // ---------------- TAP SHOT ----------------
+    // ---------------- ROLL ----------------
+    void HandleRoll()
+    {
+        if (_playerControl == null)
+            return;
 
+        if (_isChanneling || _isAiming)
+            return;
+
+        if (_playerControl.IsRolling)
+            return;
+
+        if (!Input.GetKeyDown(KeyCode.LeftShift))
+            return;
+
+        float h = Input.GetAxisRaw("Horizontal"); // A/D
+        float v = Input.GetAxisRaw("Vertical");   // W/S
+
+        Vector3 localDir = new Vector3(h, 0f, v);
+
+        if (localDir.sqrMagnitude < 0.01f)
+            localDir = Vector3.forward;
+
+        Vector3 worldDir = transform.TransformDirection(localDir.normalized);
+
+        string rollState;
+        if (Mathf.Abs(h) > Mathf.Abs(v))
+        {
+            rollState = h > 0f ? stateRollRight : stateRollLeft;
+        }
+        else
+        {
+            rollState = v < 0f ? stateRollBackward : stateRollForward;
+        }
+
+        _playerControl.StartRoll(worldDir, rollLockDuration);
+        _animator.CrossFade(rollState, 0.05f, 0);
+    }
+
+    // ---------------- TAP SHOT ----------------
     void TryTapFireball()
     {
         float now = Time.time;
         if (now - _lastAttack01Time < attack01Cooldown)
-            return; // still on cooldown
+            return;
 
         _lastAttack01Time = now;
 
-        // Play quick attack animation
         _animator.CrossFade(stateAttack01, 0.05f, 0);
-
-        // mark in combat
         _animator.SetBool(_hashInCombat, true);
 
-        // Spawn small fireball
-        if (smallFireballPrefab != null && firePoint != null)
+        // Spawn visual projectile if assigned
+        if (smallFireballPrefab != null && firePoint != null && playerCamera != null)
         {
-            Vector3 aimDirection = playerCamera.transform.forward; 
-            aimDirection.Normalize();
-
-            // Spawn facing the aim direction
+            Vector3 aimDirection = playerCamera.transform.forward.normalized;
             Quaternion aimRotation = Quaternion.LookRotation(aimDirection, Vector3.up);
-
-            GameObject fb = Instantiate(
-                smallFireballPrefab,   // or chargedFireballPrefab
-                firePoint.position,
-                aimRotation
-            );
-
-
-            // make sure it dies after 3s (or whatever is on the prefab script)
-            var life = fb.GetComponent<FireballLifetime>();
-            if (life == null)
-            {
-                life = fb.AddComponent<FireballLifetime>();
-            }
+            Instantiate(smallFireballPrefab, firePoint.position, aimRotation);
         }
+
+        // Hitscan damage application to the boss (host-authoritative via BossNetSync)
+        ApplyTapFireballDamage();
+
         if (_playerControl != null)
             _playerControl.EnterCombatFromAttack();
 
-        Debug.Log("TAP FIREBALL FIRED");
+        PlayLeftClickSfx();
+    }
 
+    void ApplyTapFireballDamage()
+    {
+        // Refresh boss reference if needed
+        if (_boss == null)
+            _boss = FindObjectOfType<BossHealth>();
+        if (_boss == null || playerCamera == null)
+            return;
+
+        // Ray forward from camera
+        Ray ray = new Ray(playerCamera.transform.position, playerCamera.transform.forward);
+        Vector3 impactPoint = playerCamera.transform.position + playerCamera.transform.forward * tapFireballRange;
+
+        // Try precise raycast against boss colliders first
+        var bossColliders = _boss.GetComponentsInChildren<Collider>();
+        bool hitBoss = false;
+        foreach (var col in bossColliders)
+        {
+            if (col == null || !col.enabled) continue;
+
+            if (col.Raycast(ray, out RaycastHit hitInfo, tapFireballRange))
+            {
+                impactPoint = hitInfo.point;
+                hitBoss = true;
+                break;
+            }
+        }
+
+        // If ray didn’t hit a boss collider, validate proximity using a sphere near the expected impact
+        if (!hitBoss)
+        {
+            foreach (var col in bossColliders)
+            {
+                if (col == null || !col.enabled) continue;
+
+                Vector3 closest = col.ClosestPoint(impactPoint);
+                float dist = Vector3.Distance(closest, impactPoint);
+                if (dist <= bossHitRadius)
+                {
+                    impactPoint = closest;
+                    hitBoss = true;
+                    break;
+                }
+            }
+        }
+
+        if (!hitBoss)
+            return;
+
+        // Route damage through BossNetSync (host applies and replicates); fallback to local damage if missing
+        var net = _boss.GetComponent<BossNetSync>();
+        if (net != null)
+        {
+            net.RequestDamage(tapFireballDamage);
+        }
+        else
+        {
+            _boss.Damage(tapFireballDamage);
+        }
+
+        // Keep combat active
+        _playerControl?.RegisterCombatAction();
     }
 
     // ---------------- CHANNEL ----------------
+    void HandleAimAndMeteor()
+    {
+        if (_playerControl == null || playerCamera == null)
+            return;
 
-    void BeginChannel()
+        bool rmbDown = Input.GetMouseButtonDown(1);
+        bool rmbHeld = Input.GetMouseButton(1);
+        bool rmbUp = Input.GetMouseButtonUp(1);
+
+        if (rmbDown && !_isAiming && !_isChanneling)
+        {
+            _isAiming = true;
+            BeginMeteorAim();
+            _playerControl.EnterAimMode();
+
+            if (meteorIndicatorPrefab != null)
+            {
+                _currentIndicator = Instantiate(
+                    meteorIndicatorPrefab,
+                    transform.position,
+                    Quaternion.identity
+                );
+            }
+        }
+
+        if (_isAiming)
+        {
+            UpdateMeteorAimIndicator();
+
+            if (!rmbHeld)
+                rmbUp = true;
+        }
+
+        if (rmbUp && _isAiming)
+        {
+            // Spawn meteor AOE visual; damage can be added similarly via BossHealth if needed
+            if (_currentIndicator != null && meteorAoePrefab != null)
+            {
+                Instantiate(
+                    meteorAoePrefab,
+                    _currentIndicator.transform.position,
+                    _currentIndicator.transform.rotation
+                );
+            }
+
+            if (_currentIndicator != null)
+                Destroy(_currentIndicator);
+
+            _playerControl.ExitAimMode();
+            EndMeteorAim();
+            _isAiming = false;
+
+            _playerControl?.EnterCombatFromAttack();
+            _playerControl?.RegisterCombatAction();
+            PlayMeteorReleaseSfx();
+        }
+    }
+
+    void BeginMeteorAim()
     {
         _isChanneling = true;
 
-        // lock movement while charging
         if (_playerControl != null)
             _playerControl.canMove = false;
 
         _animator.SetBool(_hashIsChanneling, true);
         _animator.SetBool(_hashInCombat, true);
 
-        // start channel animation
         _animator.CrossFade(stateAttack02Start, 0.05f, 0);
-        // Animator graph should transition Attack02Start -> Attack02Maintain
-        // while IsChanneling == true.
+
+        StartChannelSfx();
     }
 
-    void EndChannelAndFireCharged()
+    void EndMeteorAim()
     {
         _isChanneling = false;
 
@@ -236,32 +407,63 @@ public class WizardCombatController : MonoBehaviour
 
         _animator.SetBool(_hashIsChanneling, false);
 
-        // optional: blend back to Battle_Idle
         if (!string.IsNullOrEmpty(stateBattleIdle))
             _animator.CrossFade(stateBattleIdle, 0.1f, 0);
 
-        // Spawn charged fireball
-        if (chargedFireballPrefab != null && firePoint != null)
+        StopChannelSfx();
+    }
+
+    void UpdateMeteorAimIndicator()
+    {
+        if (_currentIndicator == null)
+            return;
+
+        Ray ray = playerCamera.ScreenPointToRay(
+            new Vector3(Screen.width / 2f, Screen.height / 2f, 0f)
+        );
+
+        if (Physics.Raycast(ray, out RaycastHit hit, maxAimDistance, groundMask))
         {
-            GameObject fb = Instantiate(
-                chargedFireballPrefab,
-                firePoint.position,
-                firePoint.rotation
-            );
-
-            var life = fb.GetComponent<FireballLifetime>();
-            if (life == null)
-            {
-                life = fb.AddComponent<FireballLifetime>();
-            }
+            _currentIndicator.SetActive(true);
+            _currentIndicator.transform.position = hit.point;
+            _currentIndicator.transform.rotation = Quaternion.FromToRotation(Vector3.up, hit.normal);
         }
-
-        if (_isChanneling)
+        else
         {
-            _isChanneling = false;
-            _animator.SetBool("IsChanneling", false);
+            _currentIndicator.SetActive(false);
         }
-        Debug.Log("CHARGED FIREBALL FIRED");
+    }
 
+    // AUDIO METHODS
+    void PlayLeftClickSfx()
+    {
+        if (oneShotSource != null && leftClickClip != null)
+            oneShotSource.PlayOneShot(leftClickClip, oneShotVolume);
+    }
+
+    void PlayMeteorReleaseSfx()
+    {
+        if (oneShotSource != null && meteorReleaseClip != null)
+            oneShotSource.PlayOneShot(meteorReleaseClip, oneShotVolume);
+    }
+
+    void StartChannelSfx()
+    {
+        if (channelSource == null || channelLoopClip == null)
+            return;
+
+        if (!channelSource.isPlaying)
+        {
+            channelSource.clip = channelLoopClip;
+            channelSource.volume = channelVolume;
+            channelSource.loop = true;
+            channelSource.Play();
+        }
+    }
+
+    void StopChannelSfx()
+    {
+        if (channelSource != null && channelSource.isPlaying)
+            channelSource.Stop();
     }
 }

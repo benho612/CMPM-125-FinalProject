@@ -39,9 +39,37 @@ public class PlayerControl : MonoBehaviour
 
     [Header("Jump VFX")]
     public GameObject doubleJumpVfxPrefab;
-    public Transform doubleJumpSpawnPoint;   // optional ¡V e.g. pelvis / feet
+    public Transform doubleJumpSpawnPoint;
 
-    public float doubleJumpVfxLifetime = 1.5f;
+    public float doubleJumpVfxLifetime = 1.0f;
+
+    [Header("Jump Audio")]
+    public AudioSource jumpSource;
+    public AudioClip jumpSound;
+    public float jumpVolume = 1.0f;
+
+    [Header("rolling")]
+    bool _isRolling = false;
+    float _rollEndTime = 0f;
+    Vector3 _rollDirection;
+    public float rollSpeed = 12f;
+    public bool IsRolling => _isRolling;
+    [Header("Roll Invulnerability")]
+    [Tooltip("How long the player is invulnerable when a roll starts.")]
+    public float rollInvulnDuration = 0.4f;
+
+    [Tooltip("These colliders will be disabled while invulnerable (DO NOT include the CharacterController).")]
+    public Collider[] invulnerableColliders;
+
+    bool _invulnerableActive = false;
+    float _invulnEndTime = 0f;
+
+    [Header("Footstep Audio")]
+    public AudioSource footstepSource;
+    public AudioClip walkingLoop;
+    public float walkPitch = 1.0f;
+    public float runPitch = 1.25f;
+    public float pitchLerpSpeed = 8f;
 
     [HideInInspector] public bool canMove = true;
 
@@ -54,10 +82,28 @@ public class PlayerControl : MonoBehaviour
 
     Alteruna.Avatar _avatar;
 
+    bool _isWizard = false;
+
     Camera _playerCamera;
     Vector3 _moveDirection;
     float _rotationX;
     int _jumpCount = 0;
+
+    [Header("Aim / First-Person Camera")]
+    [Tooltip("Camera distance while aiming (close to 0 for FPS).")]
+    public float aimCameraDistance = 0.1f;
+
+    [Tooltip("Camera height while aiming (eye level).")]
+    public float aimCameraHeight = 1.7f;
+
+    [Tooltip("How far to offset the camera to the right when aiming.")]
+    public float aimCameraSideOffset = 10f;
+
+    float _defaultCameraDistance;
+    float _defaultCameraHeight;
+    float _defaultCameraYOffset;
+
+    bool _isInAimMode = false;
 
     void Awake()
     {
@@ -88,13 +134,37 @@ public class PlayerControl : MonoBehaviour
         _playerCamera = GetComponentInChildren<Camera>();
         _warriorCombat = GetComponent<WarriorCombatController>();
 
+
+        _isWizard = (CharacterDatabase.SelectedCharacterID == 0);
+
         if (_playerCamera == null)
         {
             Debug.LogError("PlayerControl: No Camera found under Avatar.", this);
             return;
         }
 
+        if (footstepSource == null)
+        {
+            footstepSource = gameObject.AddComponent<AudioSource>();
+        }
+        footstepSource.playOnAwake = false;
+        footstepSource.loop = true;          // footsteps loop
+        footstepSource.spatialBlend = 0f;    // 0 = 2D so it's always audible
+
+        // --- JUMP AUDIO SOURCE ---
+        if (jumpSource == null)
+        {
+            jumpSource = gameObject.AddComponent<AudioSource>();
+        }
+        jumpSource.playOnAwake = false;
+        jumpSource.loop = false;             // jump is one-shot
+        jumpSource.spatialBlend = 0f;        // also 2D for now
+
         // Initial camera placement
+        _defaultCameraDistance = cameraDistance;
+        _defaultCameraHeight = cameraHeight;
+        _defaultCameraYOffset = cameraYOffset;
+
         Vector3 startPos =
             transform.position
             - transform.forward * cameraDistance
@@ -126,8 +196,41 @@ public class PlayerControl : MonoBehaviour
 
     void HandleMovement()
     {
+        // --- ROLL OVERRIDE ---
+        if (_isRolling)
+        {
+            // end roll
+            if (Time.time >= _rollEndTime)
+            {
+                _isRolling = false;
+                canMove = true;
+                _moveDirection = Vector3.zero;
+            }
+            else
+            {
+                float _verticalVelocity = _moveDirection.y;
+
+                if (!CharacterController.isGrounded)
+                    _verticalVelocity -= gravity * Time.deltaTime;
+
+                _moveDirection = _rollDirection * rollSpeed;
+                _moveDirection.y = _verticalVelocity;
+
+                CharacterController.Move(_moveDirection * Time.deltaTime);
+            }
+
+            if (_invulnerableActive && Time.time >= _invulnEndTime)
+            {
+                SetRollInvulnerable(false);
+            }
+
+            // while rolling we skip normal movement
+            if (_isRolling)
+                return;
+        }
+
         // Holding Left Shift = run
-        bool runKey = Input.GetKey(KeyCode.LeftShift);
+        bool runKey = !_isWizard && Input.GetKey(KeyCode.LeftShift);
 
         Vector3 forward = transform.TransformDirection(Vector3.forward);
         Vector3 right = transform.TransformDirection(Vector3.right);
@@ -143,6 +246,7 @@ public class PlayerControl : MonoBehaviour
             inputVec = inputVec.normalized;
 
         // Base speed (walk / run)
+
         float speed = runKey ? runningSpeed : walkingSpeed;
 
         // --- DEFEND SLOWDOWN (WARRIOR ONLY) ---
@@ -172,6 +276,7 @@ public class PlayerControl : MonoBehaviour
                 _jumpCount = 1;
                 verticalVelocity = jumpSpeed;
                 Animator?.SetTrigger("Jump");
+                PlayJumpSound();
             }
             else if (_jumpCount == 1)
             {
@@ -179,6 +284,7 @@ public class PlayerControl : MonoBehaviour
                 verticalVelocity = jumpSpeed;
                 Animator?.SetTrigger("DoubleJump");
                 SpawnDoubleJumpVfx();
+                PlayJumpSound();
             }
         }
 
@@ -192,7 +298,10 @@ public class PlayerControl : MonoBehaviour
 
     void HandleCamera()
     {
-        if (!canMove || _playerCamera == null)
+        if (_playerCamera == null)
+            return;
+
+        if (!canMove && !_isInAimMode)
             return;
 
         float mouseX = Input.GetAxis("Mouse X") * lookSpeed;
@@ -207,9 +316,17 @@ public class PlayerControl : MonoBehaviour
 
         Quaternion camRot = Quaternion.Euler(_rotationX, transform.eulerAngles.y, 0f);
 
+        Vector3 shoulderOffset = Vector3.zero;
+        if (_isInAimMode)
+        {
+            // offset to the player's right side in camera space
+            shoulderOffset = camRot * Vector3.right * aimCameraSideOffset;
+        }
+
         Vector3 desiredPos =
             transform.position
             - camRot * Vector3.forward * cameraDistance
+            + shoulderOffset
             + Vector3.up * cameraHeight;
 
         _playerCamera.transform.position =
@@ -233,13 +350,57 @@ public class PlayerControl : MonoBehaviour
         float speed = horizontalVel.magnitude;
 
         IsMoving = speed > 0.1f;
-        bool runKey = Input.GetKey(KeyCode.LeftShift);
+        bool runKey = !_isWizard && Input.GetKey(KeyCode.LeftShift);
         IsRunning = IsMoving && runKey;
 
         Animator.SetBool("IsMoving", IsMoving);
         Animator.SetBool("IsSprinting", IsRunning);
         Animator.SetBool("IsGrounded", CharacterController.isGrounded);
         Animator.SetBool("InCombat", _inCombat);
+
+        UpdateFootstepAudio();
+    }
+
+    void UpdateFootstepAudio()
+    {
+        if (footstepSource == null || walkingLoop == null)
+            return;
+
+        // We want footsteps only when:
+        // - moving horizontally
+        // - grounded
+        // - allowed to move
+        // - not currently rolling (using your _isRolling flag)
+        bool shouldPlay =
+            IsMoving &&
+            CharacterController.isGrounded &&
+            canMove &&
+            !_isRolling;   // this is your private roll bool
+
+        if (shouldPlay)
+        {
+            if (!footstepSource.isPlaying)
+            {
+                footstepSource.clip = walkingLoop;
+                footstepSource.pitch = walkPitch;
+                footstepSource.Play();
+            }
+
+            // Blend pitch between walk and run
+            float targetPitch = IsRunning ? runPitch : walkPitch;
+            footstepSource.pitch = Mathf.Lerp(
+                footstepSource.pitch,
+                targetPitch,
+                Time.deltaTime * pitchLerpSpeed
+            );
+        }
+        else
+        {
+            if (footstepSource.isPlaying)
+            {
+                footstepSource.Stop();
+            }
+        }
     }
 
     void SpawnDoubleJumpVfx()
@@ -295,5 +456,67 @@ public class PlayerControl : MonoBehaviour
             Animator.SetBool("InCombat", _inCombat);
         }
 
+    }
+
+    // Called by WizardCombatController to start rolling
+    public void StartRoll(Vector3 worldDirection, float duration)
+    {
+        if (worldDirection.sqrMagnitude < 0.001f)
+            worldDirection = transform.forward;
+
+        _rollDirection = worldDirection.normalized;
+        _isRolling = true;
+        _rollEndTime = Time.time + duration;
+        canMove = false;
+
+        // start invulnerability window
+        if (rollInvulnDuration > 0f)
+        {
+            SetRollInvulnerable(true);
+            _invulnEndTime = Time.time + rollInvulnDuration;
+        }
+    }
+
+    void PlayJumpSound()
+    {
+        if (jumpSource == null || jumpSound == null)
+        {
+            Debug.LogWarning("Jump SFX missing: jumpSource or jumpSound not assigned.");
+            return;
+        }
+
+        jumpSource.PlayOneShot(jumpSound, jumpVolume);
+    }
+
+    void SetRollInvulnerable(bool value)
+    {
+        _invulnerableActive = value;
+
+        if (invulnerableColliders == null)
+            return;
+
+        foreach (var col in invulnerableColliders)
+        {
+            if (col == null) continue;
+            col.enabled = !value;  // disable while invulnerable
+        }
+    }
+
+    public void EnterAimMode()
+    {
+        _isInAimMode = true;
+
+        cameraDistance = aimCameraDistance;
+        cameraHeight = aimCameraHeight;
+        cameraYOffset = 1.7f;
+    }
+
+    public void ExitAimMode()
+    {
+        _isInAimMode = false;
+
+        cameraDistance = _defaultCameraDistance;
+        cameraHeight = _defaultCameraHeight;
+        cameraYOffset = _defaultCameraYOffset;
     }
 }

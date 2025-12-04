@@ -17,12 +17,6 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/RockyScene.unity
     guid: 96eadd183d0bb5043aae5d5b81b82761
-  - enabled: 1
-    path: Assets/Scenes/ForestScene.unity
-    guid: 48d496848a59c6d4da2e3224edcb773d
-  - enabled: 1
-    path: Assets/Scenes/DesertScene.unity
-    guid: cd3a3a5eab403cd4b8a7b56ab2a49b2a
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

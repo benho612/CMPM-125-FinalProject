@@ -18,6 +18,8 @@ GameObject:
   - component: {fileID: 6092655716832943}
   - component: {fileID: 7387383018468365380}
   - component: {fileID: -940402020210530260}
+  - component: {fileID: 9052775223444854402}
+  - component: {fileID: 6854599671838094215}
   m_Layer: 6
   m_Name: Avatar
   m_TagString: Player
@@ -42,6 +44,7 @@ Transform:
   - {fileID: 1501586719575195211}
   - {fileID: 6470916731973160272}
   - {fileID: 2802440781792567348}
+  - {fileID: 8603656926557359238}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &8118252207703568450
@@ -177,9 +180,23 @@ MonoBehaviour:
   doubleJumpVfxPrefab: {fileID: 985483039366664255, guid: f91edac4d13fc4343ba96bb6a843ad05, type: 3}
   doubleJumpSpawnPoint: {fileID: 0}
   doubleJumpVfxLifetime: 1.5
+  jumpSource: {fileID: 0}
+  jumpSound: {fileID: 8300000, guid: 4e349dc959014a845b9aa317d1c2b7f0, type: 3}
+  jumpVolume: 1
+  rollSpeed: 12
+  rollInvulnDuration: 0.4
+  invulnerableColliders: []
+  footstepSource: {fileID: 0}
+  walkingLoop: {fileID: 8300000, guid: 023ea3ddeaa8dd146b7633a0800e5a0e, type: 3}
+  walkPitch: 2
+  runPitch: 4
+  pitchLerpSpeed: 8
   canMove: 1
   Animator: {fileID: 0}
   CharacterController: {fileID: 0}
+  aimCameraDistance: 1
+  aimCameraHeight: 1.7
+  aimCameraSideOffset: 1
 --- !u!114 &585299912668349793
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -197,6 +214,7 @@ MonoBehaviour:
   defendedDamageMultiplier: 0.3
   normalHitTrigger: Normal_Hit
   defendHitTrigger: Defend_Hit
+  verbose: 1
 --- !u!114 &6092655716832943
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -210,18 +228,38 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WizardCombatController
   attackAction: {fileID: 1120369429361536294, guid: 052faaac586de48259a63d0c4782560b, type: 3}
-  smallFireballPrefab: {fileID: 3367314013316085171, guid: 8b20002c2b69a9d44ab5bae8e1d923cd, type: 3}
-  chargedFireballPrefab: {fileID: 2715471840370901047, guid: df9374346b76e444dbbb2b019de4da25, type: 3}
+  smallFireballPrefab: {fileID: 5262534621397716068, guid: 62fb7531fc5ab18428475b2580c95282, type: 3}
   firePoint: {fileID: 1497972770703168781}
   tapMaxDuration: 0.2
   chargeThreshold: 0.6
-  attack01Cooldown: 0.5
+  attack01Cooldown: 2
+  tapFireballDamage: 50
+  tapFireballRange: 20
+  bossHitRadius: 0.9
   stateAttack01: Attack01
   stateAttack02Start: Attack02Start
   stateAttack02Maintain: Attack02Maintain
   stateBattleIdle: Battle_Idle
+  rollLockDuration: 0.7
+  stateRollForward: RollForward
+  stateRollBackward: RollBackward
+  stateRollLeft: RollLeft
+  stateRollRight: RollRight
   paramIsChanneling: IsChanneling
   paramInCombat: InCombat
+  meteorAoePrefab: {fileID: 7957833072274404953, guid: 3355f6bfa6db8b24281b827de929694c, type: 3}
+  meteorIndicatorPrefab: {fileID: 3744133877081091469, guid: a2a060732547fe64581bb0cb3c2bdf1d, type: 3}
+  groundMask:
+    serializedVersion: 2
+    m_Bits: 183
+  maxAimDistance: 30
+  oneShotSource: {fileID: 0}
+  leftClickClip: {fileID: 8300000, guid: c91fcf414acc0344cb03b13996f1bf3b, type: 3}
+  meteorReleaseClip: {fileID: 8300000, guid: b0e62ed71b1538648b719821f4f63b4c, type: 3}
+  oneShotVolume: 0.5
+  channelSource: {fileID: 0}
+  channelLoopClip: {fileID: 8300000, guid: d1afd3f4d23c24f418ffc315afb04965, type: 3}
+  channelVolume: 0.5
 --- !u!114 &7387383018468365380
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -236,14 +274,31 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::WarriorCombatController
   attackCooldown: 0.3
   comboResetTime: 1
+  attack01Damage: 40
+  attack02Damage: 55
+  attack03Damage: 80
+  attack04Damage: 30
+  attack01Range: 2.1
+  attack02Range: 2.2
+  attack03Range: 2.6
+  attack04Range: 2.4
+  hitRadius: 0.9
+  attack01HitDelay: 0.08
+  attack02HitDelay: 0.1
+  attack03HitDelay: 0.12
+  attack04HitDelay: 0.14
   slash01Prefab: {fileID: 7611201976539897820, guid: 39706049c667f7d4bbca965b63cd3bec, type: 3}
   slash02Prefab: {fileID: 0}
   slash03Prefab: {fileID: 9380231799744250, guid: 197469d1eee2fc1488538f97714cf9de, type: 3}
   slash04Prefab: {fileID: 6855955652325114174, guid: f8dc879bd6649cb4782409815764d676, type: 3}
   slashLifetime: 1
-  shieldPoint: {fileID: 0}
   shieldVfxPrefab: {fileID: 6424583148328831481, guid: d2ffbc8b168cdf74a9dbb7c6c1cfdf2f, type: 3}
-  shieldForwardOffset: 0.2
+  bossHitVfxPrefab: {fileID: 4535006216103734310, guid: 98c4704d0fd7211449bcf5c451095a60, type: 3}
+  bossHitVfxLifetime: 1.2
+  bossHitVfxOffset: {x: 0, y: 1.5, z: 0}
+  slashAudioSource: {fileID: 9052775223444854402}
+  slashAttackClip: {fileID: 8300000, guid: 88b1cbe3caa3fee4b8b103b5edd7aba9, type: 3}
+  slashVolume: 0.5
 --- !u!114 &-940402020210530260
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -256,6 +311,137 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e596a6587d4763a4bbcb3f89a2017d9d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AvatarSceneSpawn
+  spawnPrefix: Spawn_
+  waitForSpawnTimeout: 1
+--- !u!82 &9052775223444854402
+AudioSource:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 125098771000295103}
+  m_Enabled: 1
+  serializedVersion: 4
+  OutputAudioMixerGroup: {fileID: 0}
+  m_audioClip: {fileID: 0}
+  m_Resource: {fileID: 0}
+  m_PlayOnAwake: 1
+  m_Volume: 1
+  m_Pitch: 1
+  Loop: 0
+  Mute: 0
+  Spatialize: 0
+  SpatializePostEffects: 0
+  Priority: 128
+  DopplerLevel: 1
+  MinDistance: 1
+  MaxDistance: 500
+  Pan2D: 0
+  rolloffMode: 0
+  BypassEffects: 0
+  BypassListenerEffects: 0
+  BypassReverbZones: 0
+  rolloffCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  panLevelCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  spreadCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  reverbZoneMixCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+--- !u!114 &6854599671838094215
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 125098771000295103}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7d07ca543f03a3c44accff6b47ab9bdb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerHealthSync
+  Multiplayer: {fileID: 0}
+  _uidString: 2efdb900-d661-4763-9cbb-16c400b3c52c
+  BucketBehaviors:
+  - Name: Min
+    NetLOD: 0
+    Frequency: -1
+  - Name: Low
+    NetLOD: 1
+    Frequency: 10
+  - Name: Mid
+    NetLOD: 2
+    Frequency: 30
+  - Name: High
+    NetLOD: 3
+    Frequency: 50
+  - Name: Max
+    NetLOD: 4
+    Frequency: 120
+  Reliability: 2
+  receiver: {fileID: 585299912668349793}
 --- !u!1 &697565512125543728
 GameObject:
   m_ObjectHideFlags: 0
@@ -269,6 +455,7 @@ GameObject:
   - component: {fileID: 4372996148618075250}
   - component: {fileID: 6982516377113007875}
   - component: {fileID: 6098212879753861415}
+  - component: {fileID: 1544035980699870518}
   m_Layer: 0
   m_Name: Camera
   m_TagString: MainCamera
@@ -429,6 +616,75 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
+--- !u!114 &1544035980699870518
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 697565512125543728}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bdbe2fb715c6e594faadd34e9f8e8c2b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CameraShake
+  defaultDuration: 0.2
+  defaultMagnitude: 0.25
+--- !u!1 &5779743112160875007
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8603656926557359238}
+  - component: {fileID: 1912175112571904273}
+  m_Layer: 6
+  m_Name: HurtBox
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8603656926557359238
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5779743112160875007}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0.836, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8472894142956162822}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!136 &1912175112571904273
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5779743112160875007}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.5
+  m_Height: 1.5588825
+  m_Direction: 1
+  m_Center: {x: 0, y: -0.18757856, z: 0}
 --- !u!1001 &2488097713158932142
 PrefabInstance:
   m_ObjectHideFlags: 0
