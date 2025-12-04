@@ -151,6 +151,15 @@ public class PlayerControl : MonoBehaviour
         footstepSource.loop = true;          // footsteps loop
         footstepSource.spatialBlend = 0f;    // 0 = 2D so it's always audible
 
+        if (_isWizard)
+        {
+            footstepSource.volume = 0.35f;
+            footstepSource.pitch = 0.2f;
+
+        }
+            
+        
+
         // --- JUMP AUDIO SOURCE ---
         if (jumpSource == null)
         {
