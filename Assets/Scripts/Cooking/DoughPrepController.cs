@@ -42,7 +42,14 @@ public class DoughPrepController : MonoBehaviour, ICookingActionReceiver
             playerControl.canMove = false;
 
         // set self as current mini-game receiver
-        phaseManager.CurrentMiniGame = this;
+        if (phaseManager != null)
+        {
+            phaseManager.CurrentMiniGame = this;
+            Debug.Log("DoughPrepController set as current mini-game.");
+        }else{
+            Debug.LogWarning("CookingPhaseManager not assigned in DoughPrepController.");
+        }
+        
 
         timer = 0f;
         isActive = true;
@@ -93,10 +100,19 @@ public class DoughPrepController : MonoBehaviour, ICookingActionReceiver
             playerControl.canMove = true;
 
         // clear mini-game link
-        phaseManager.CurrentMiniGame = null;
+        if (phaseManager != null)
+        {
+            phaseManager.CurrentMiniGame = null;
+        }
+        else
+        {
+            Debug.LogWarning("CookingPhaseManager not assigned in DoughPrepController.");
+        }
 
         // advance to next phase
-        phaseManager.AdvanceState(CookingState.CookSoup);
+        //phaseManager.AdvanceState();
+        phaseManager.CheckForPhaseUnlocks();
+
 
         Debug.Log("Noodle prep finished.");
     }

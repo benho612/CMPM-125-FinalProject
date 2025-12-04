@@ -10,17 +10,18 @@ public class IngredientInventory : MonoBehaviour
     public Dictionary<string, int> required = new Dictionary<string, int>
     {
         { "Water", 2 },
-        { "Flour", 1 },
         { "Dough", 1 },
         { "Noodles", 1 },
         { "Horn", 1 },
-        { "Bones", 1 },
+        { "Bone", 1 },
         { "Garlic", 1 },
         { "Condiments", 1 },
         { "Soup", 1 },
         { "Pork", 1 },
         { "Egg", 1 },
-        { "Vegetables", 1 }
+        { "Vegetable", 1 },
+        { "Chopped Vegetables", 1 },
+        { "FinalRamenHalf", 1 }
     };
 
     public void Add(string item, int amount = 1)
@@ -52,4 +53,12 @@ public class IngredientInventory : MonoBehaviour
     {
         return counts;
     }
+
+    public bool HasAllForAssemble()
+    {
+        return GetCount("Noodles") >= 1 &&
+            GetCount("Soup") >= 1 &&
+            GetCount("Chopped Vegetables") >= 1;
+    }
+
 }
