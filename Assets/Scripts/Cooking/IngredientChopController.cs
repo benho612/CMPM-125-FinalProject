@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 
 public class IngredientChopController : MonoBehaviour, ICookingActionReceiver
 {
@@ -6,10 +7,10 @@ public class IngredientChopController : MonoBehaviour, ICookingActionReceiver
     public int hitsRequired = 10;
 
     [Header("References")]
-    public Camera fpsCamera;
-    public MouseLookLimited fpsLook;
-    public UnityEngine.UI.Slider progressBar;
-    public IngredientSpawner spawner;
+    private Camera fpsCamera;
+    private MouseLookLimited fpsLook;
+    private UnityEngine.UI.Slider progressBar;
+    private IngredientSpawner spawner;
 
     private int currentHits = 0;
     private bool active = false;
@@ -21,6 +22,13 @@ public class IngredientChopController : MonoBehaviour, ICookingActionReceiver
     public float heightBoost = 1f;
     public bool IsActive => active;
     private Camera originalCamera;
+    private Camera tpsCamera;
+    //private Camera fpsCamera;
+
+    private float autoProgress = 0f;
+    public float autoFillDuration = 15f;   // time (seconds) to finish chopping
+
+
 
 
     public Vector3 GetAttackDirection()
@@ -28,19 +36,96 @@ public class IngredientChopController : MonoBehaviour, ICookingActionReceiver
         return fpsCamera.transform.forward;
     }
 
-
-
-    void Start()
+    private GameObject FindUI(string name)
     {
-        playerControl = GetComponent<PlayerControl>();
-        phaseManager = GetComponent<CookingPhaseManager>();
-        inventory = GetComponent<IngredientInventory>();
+        var objs = Resources.FindObjectsOfTypeAll<GameObject>();
+        foreach (var o in objs)
+        {
+            if (o.name == name)
+                return o;
+        }
+        return null;
+    }
+
+void Start()
+{
+    playerControl = GetComponent<PlayerControl>();
+    phaseManager = GetComponent<CookingPhaseManager>();
+    inventory = GetComponent<IngredientInventory>();
+
+    // FIRST: Find FPS Camera by exact name anywhere in scene
+    if (fpsCamera == null)
+    {
+        var go = FindUI("FirstPersonMiniCam");
+        if (go != null)
+        {
+            fpsCamera = go.GetComponent<Camera>();
+            fpsLook = go.GetComponent<MouseLookLimited>();
+        }
+    }
+
+    // SECOND: Find TPS camera by exact name
+    if (tpsCamera == null)
+    {
+        var go = FindUI("Camera");
+        if (go != null)
+            tpsCamera = go.GetComponent<Camera>();
+    }
+
+    // THIRD: NEVER overwrite cameras again (REMOVE the old GetComponentsInChildren loop!)
+    // (Your previous code was destroying these references.)
+
+    // FOURTH: progress bar
+    if (progressBar == null)
+    {
+        var go = FindUI("IngredientProgressBar");
+        if (go != null)
+            progressBar = go.GetComponent<Slider>();
+    }
+
+    // Spawner auto-find
+    if (spawner == null)
+        spawner = FindObjectOfType<IngredientSpawner>(true);
+
+    // Hide bar initially
+    if (progressBar != null)
+        progressBar.gameObject.SetActive(false);
+
+    // Disable FPS camera by default
+    if (fpsCamera != null)
+        fpsCamera.enabled = false;
+}
+
+void Update()
+    {
+        if (!active)
+            return;
+
+        UpdateWhileChopping();
+    }
+
+    private void UpdateWhileChopping()
+    {
+        // Allow limited camera look
+        if (fpsLook != null)
+            fpsLook.EnableLook();
+
+        // Still allow visual attacks
+        if (Input.GetKeyDown(KeyCode.Mouse0))
+            OnPlayerPrimaryAction();
+
+        // --- AUTO PROGRESS FILL ---
+        autoProgress += Time.deltaTime;
+        float ratio = Mathf.Clamp01(autoProgress / autoFillDuration);
 
         if (progressBar != null)
-            progressBar.gameObject.SetActive(false);
+            progressBar.value = ratio;
 
-        if (fpsCamera != null)
-            fpsCamera.enabled = false;
+        // When complete
+        if (ratio >= 1f)
+        {
+            CompleteMiniGame();
+        }
     }
 
     public void StartMiniGame()
@@ -53,13 +138,24 @@ public class IngredientChopController : MonoBehaviour, ICookingActionReceiver
 
         active = true;
         currentHits = 0;
+        fpsCamera.gameObject.SetActive(true);
+
+        // Switch attack direction to FPS camera
+        var warrior = GetComponent<WarriorCombatController>();
+        if (warrior != null)
+            warrior.OverrideAttackCamera(fpsCamera.transform);
+
+        var wizard = GetComponent<WizardCombatController>();
+        if (wizard != null)
+            wizard.OverrideAttackCamera(fpsCamera.transform);
+
 
         // Lock movement
         if (playerControl != null)
             playerControl.canMove = false;
 
         // Save which camera was active so we can restore it later
-        originalCamera = Camera.main;
+        originalCamera = tpsCamera;
 
         // Disable it
         if (originalCamera != null)
@@ -78,7 +174,8 @@ public class IngredientChopController : MonoBehaviour, ICookingActionReceiver
         phaseManager.CurrentMiniGame = this;
 
         // Start spawning
-        spawner.Begin(fpsCamera.transform);
+        spawner.Begin(fpsCamera.transform, this);
+
     }
 
     public void OnPlayerPrimaryAction()
@@ -118,6 +215,8 @@ public class IngredientChopController : MonoBehaviour, ICookingActionReceiver
 
         // Restore player height
         transform.position = originalPlayerPos;
+
+        fpsCamera.gameObject.SetActive(false);
 
         // Stop spawning
         if (spawner != null)

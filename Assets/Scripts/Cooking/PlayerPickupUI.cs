@@ -3,13 +3,28 @@ using TMPro;
 
 public class PlayerPickupUI : MonoBehaviour
 {
-    public TextMeshProUGUI promptText;  // assign in Inspector
+    private TextMeshProUGUI promptText;  // assign in Inspector
     private bool showing = false;
 
+    private GameObject FindUI(string name)
+    {
+        var objs = Resources.FindObjectsOfTypeAll<GameObject>();
+        foreach (var o in objs)
+        {
+            if (o.name == name)
+                return o;
+        }
+        return null;
+    }
+    
     void Start()
     {
-        if (promptText != null)
-            promptText.gameObject.SetActive(false);
+        if (promptText == null)
+        {
+            GameObject ui = FindUI("PickupPrompt");
+            if (ui != null)
+                promptText = ui.GetComponent<TextMeshProUGUI>();
+        }
     }
 
     public void Show(string itemName)

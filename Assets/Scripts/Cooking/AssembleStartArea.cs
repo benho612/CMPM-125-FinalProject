@@ -3,9 +3,6 @@ using Alteruna;
 
 public class AssembleStartArea : MonoBehaviour
 {
-    [Header("UI Prompt")]
-    public PlayerPickupUI pickupUI;
-
     private void OnTriggerStay(Collider other)
     {
         // Only local avatar
@@ -21,33 +18,53 @@ public class AssembleStartArea : MonoBehaviour
         if (inv == null)
             return;
 
+        var ui = other.GetComponentInParent<PlayerPickupUI>();
+        if (ui == null)
+            return;
+
         // Check ingredients required for assemble
         if (!inv.HasAllForAssemble())
         {
-            if (pickupUI != null)
-                pickupUI.ShowCustom("Need: 1 Noodles, 1 Soup, 1 Chopped Vegetables");
+            if (ui != null)
+                ui.ShowCustom("Need: 1 Noodles, 1 Soup, 1 Chopped Vegetables");
             return;
         }
 
-        if (pickupUI != null)
-            pickupUI.ShowCustom("Press E to assemble ramen");
+        if (ui != null)
+            ui.ShowCustom("Press E to assemble ramen");
 
+        // Begin mini-game on E
         if (Input.GetKeyDown(KeyCode.E))
         {
-            if (pickupUI != null)
-                pickupUI.Hide();
-
-            var assemble = other.GetComponent<AssembleMiniGameController>();
+            var assemble = other.GetComponentInParent<AssembleMiniGameController>();
             if (assemble != null)
+            {
                 assemble.StartMiniGame();
-            else
-                Debug.LogWarning("AssembleMiniGameController not found on player.");
+                ui.Hide();
+            }
         }
     }
 
     private void OnTriggerExit(Collider other)
     {
-        if (pickupUI != null)
-            pickupUI.Hide();
+        var ui = other.GetComponentInParent<PlayerPickupUI>();
+        if (ui != null)
+            ui.Hide();
     }
 }
+
+
+
+/*
+
+Cooking Phase Manager
+Dough Prep controller
+Soup heat controller
+ingredient inventory
+player pickup UI
+ingredient chop controller
+assemble mini game controller
+FirstPersonMiniCam
+->MouseLookLimited
+
+*/

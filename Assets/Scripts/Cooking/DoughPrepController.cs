@@ -14,14 +14,25 @@ public class DoughPrepController : MonoBehaviour, ICookingActionReceiver
 
 
     [Header("UI")]
-    public UnityEngine.UI.Slider progressBar; // drag in inspector later
+    private UnityEngine.UI.Slider progressBar; // drag in inspector later
 
-
+    private GameObject FindUI(string name)
+    {
+        var objs = Resources.FindObjectsOfTypeAll<GameObject>();
+        foreach (var o in objs)
+        {
+            if (o.name == name)
+                return o;
+        }
+        return null;
+    }
     void Start()
     {
         phaseManager = GetComponent<CookingPhaseManager>();
         playerControl = GetComponent<PlayerControl>();
         inventory = GetComponent<IngredientInventory>();
+        progressBar = FindUI("DoughProgressBar").GetComponent<UnityEngine.UI.Slider>();
+
 
 
         if (phaseManager == null)

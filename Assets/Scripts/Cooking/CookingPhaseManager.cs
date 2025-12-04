@@ -15,8 +15,12 @@ public enum CookingState
 public class CookingPhaseManager : MonoBehaviour
 {
     private Alteruna.Avatar avatar;
-    public ChecklistUI checklist;
+    private ChecklistUI checklist;
     public static int finalProductCount = 0;
+    
+    private Camera tpsCamera;
+    private Camera fpsCamera;
+
 
 
 
@@ -25,9 +29,34 @@ public class CookingPhaseManager : MonoBehaviour
     public ICookingActionReceiver CurrentMiniGame { get; set; }
 
 
+    private GameObject FindUI(string name)
+    {
+        var objs = Resources.FindObjectsOfTypeAll<GameObject>();
+        foreach (var o in objs)
+        {
+            if (o.name == name)
+                return o;
+        }
+        return null;
+    }
     void Start()
     {
+        // Auto-find both cameras on the avatar
+        Camera[] cams = GetComponentsInChildren<Camera>(true);
+        foreach (var cam in cams)
+        {
+            if (cam.name.Contains("FPS") || cam.name.Contains("FirstPerson"))
+                fpsCamera = cam;
+            else
+                tpsCamera = cam;
+        }
         avatar = GetComponent<Alteruna.Avatar>();
+        // Auto-find checklist UI if not assigned
+        if (checklist == null)
+        {
+            checklist = FindObjectOfType<ChecklistUI>(true);
+        }
+
 
 
         // Only local players run cooking logic
@@ -39,6 +68,8 @@ public class CookingPhaseManager : MonoBehaviour
         }
         if (avatar.IsMe)
         {
+            if (tpsCamera != null) tpsCamera.gameObject.SetActive(true);
+            if (fpsCamera != null) fpsCamera.gameObject.SetActive(false);
             CookingPhaseManager.finalProductCount = 0;
             Debug.Log("CookingPhaseManager enabled for local player.");
             if (checklist != null){

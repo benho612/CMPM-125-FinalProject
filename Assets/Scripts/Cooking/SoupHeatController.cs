@@ -1,5 +1,6 @@
 using UnityEngine;
 using Alteruna;
+using UnityEngine.UI;
 
 public class SoupHeatController : MonoBehaviour, ICookingActionReceiver
 {
@@ -20,8 +21,8 @@ public class SoupHeatController : MonoBehaviour, ICookingActionReceiver
     private float greenTimer = 0f;
 
     [Header("UI")]
-    public UnityEngine.UI.Slider tempSlider;
-    public UnityEngine.UI.Slider progressSlider;
+    private UnityEngine.UI.Slider tempSlider;
+    private UnityEngine.UI.Slider progressSlider;
 
     private float temp;
     private bool isActive = false;
@@ -30,13 +31,35 @@ public class SoupHeatController : MonoBehaviour, ICookingActionReceiver
     private PlayerControl playerControl;
     private IngredientInventory inventory;
 
-
+    private GameObject FindUI(string name)
+    {
+        var objs = Resources.FindObjectsOfTypeAll<GameObject>();
+        foreach (var o in objs)
+        {
+            if (o.name == name)
+                return o;
+        }
+        return null;
+    }
     void Start()
     {
         phaseManager = GetComponent<CookingPhaseManager>();
         playerControl = GetComponent<PlayerControl>();
         inventory = GetComponent<IngredientInventory>();
-    }
+        if (tempSlider == null)
+        {
+            var go = FindUI("SoupTemperatureBar");
+            if (go != null)
+                tempSlider = go.GetComponent<Slider>();
+        }
+
+        if (progressSlider == null)
+        {
+            var go = FindUI("SoupProgressBar");
+            if (go != null)
+                progressSlider = go.GetComponent<Slider>();
+        }
+            }
 
     public void StartMiniGame()
     {

@@ -19,10 +19,13 @@ public class IngredientSpawner : MonoBehaviour
     private bool spawning = false;
     private Transform targetCamera;       // Player FPS camera
     private List<GameObject> activeIngredients = new List<GameObject>();
+    private IngredientChopController ownerController;
 
-    public void Begin(Transform cam)
+
+    public void Begin(Transform cam, IngredientChopController owner)
     {
         targetCamera = cam;
+        ownerController = owner;
         spawning = true;
         StartCoroutine(SpawnLoop());
     }
@@ -79,7 +82,8 @@ public class IngredientSpawner : MonoBehaviour
 
         var slice = ingredient.GetComponent<IngredientSliceable>();
         if (slice != null)
-            slice.SetOwner(targetCamera.GetComponentInParent<IngredientChopController>());
+            slice.SetOwner(ownerController);
+
 
 
         // BASE direction toward camera

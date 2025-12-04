@@ -9448,7 +9448,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6a822de6aa427934a935ef7fcc3c08bd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AssembleMiniGameController
-  timingSlider: {fileID: 982638718}
   successMin: 0.4
   successMax: 0.6
   speed: 1.5
@@ -9465,11 +9464,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::IngredientChopController
   hitsRequired: 10
-  fpsCamera: {fileID: 964416582}
-  fpsLook: {fileID: 964416583}
-  progressBar: {fileID: 1755575934}
-  spawner: {fileID: 1825025087}
   heightBoost: 1
+  autoFillDuration: 10
 --- !u!114 &958128824
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9482,7 +9478,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b9e24419682a25943979faa83c0d7fb5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerPickupUI
-  promptText: {fileID: 317113867}
 --- !u!114 &958128825
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9515,8 +9510,6 @@ MonoBehaviour:
   greenStart: 40
   greenEnd: 70
   requiredTimeInGreen: 6
-  tempSlider: {fileID: 2084118920}
-  progressSlider: {fileID: 515126804}
 --- !u!114 &958128827
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9530,7 +9523,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DoughPrepController
   mixDuration: 4
-  progressBar: {fileID: 1423759089}
 --- !u!114 &958128828
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9543,7 +9535,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b7307beb5a2490149b8d9255c55e4245, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CookingPhaseManager
-  checklist: {fileID: 1860782774}
 --- !u!4 &961533972 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 4302940517649464, guid: 99bf85d404a04ee459c668786c801529, type: 3}
@@ -11190,7 +11181,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 52c0b6b2280592344bf32bf4bec18a24, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 9b50e452a0f568f4f9ad13c1864e3a5b, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -12475,7 +12466,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ec796a06ed01b3149b6a120f9a653d72, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::IngredientChopStartArea
-  pickupUI: {fileID: 1441864709}
 --- !u!1001 &1172069579
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -13064,7 +13054,10 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Progress
+  m_text: 'Progress
+
+
+    Clickl mouse to chop!'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -13129,7 +13122,7 @@ MonoBehaviour:
   m_VertexBufferAutoSizeReduction: 0
   m_useMaxVisibleDescender: 1
   m_pageToDisplay: 1
-  m_margin: {x: 0, y: 0, z: 21.356041, w: 5.050997}
+  m_margin: {x: 0, y: 0, z: 1.1067963, w: 5.050997}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
   m_hasFontAssetChanged: 0
@@ -13458,7 +13451,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 486700edc2c85e745aa0b8397e285536, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AssembleStartArea
-  pickupUI: {fileID: 1441864709}
 --- !u!65 &1246542572
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -15493,7 +15485,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b7307beb5a2490149b8d9255c55e4245, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CookingPhaseManager
-  checklist: {fileID: 0}
 --- !u!114 &1441864706
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -15507,7 +15498,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DoughPrepController
   mixDuration: 4
-  progressBar: {fileID: 1423759089}
 --- !u!114 &1441864707
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -15528,8 +15518,6 @@ MonoBehaviour:
   greenStart: 45
   greenEnd: 65
   requiredTimeInGreen: 10
-  tempSlider: {fileID: 2084118920}
-  progressSlider: {fileID: 515126804}
 --- !u!114 &1441864708
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -15554,7 +15542,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b9e24419682a25943979faa83c0d7fb5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerPickupUI
-  promptText: {fileID: 317113867}
 --- !u!114 &1441864710
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -15568,11 +15555,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::IngredientChopController
   hitsRequired: 15
-  fpsCamera: {fileID: 964416582}
-  fpsLook: {fileID: 964416583}
-  progressBar: {fileID: 1755575934}
-  spawner: {fileID: 1825025087}
   heightBoost: 1
+  autoFillDuration: 10
 --- !u!114 &1441864711
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -15585,7 +15569,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6a822de6aa427934a935ef7fcc3c08bd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AssembleMiniGameController
-  timingSlider: {fileID: 982638718}
   successMin: 0.54
   successMax: 0.64
   speed: 1.5

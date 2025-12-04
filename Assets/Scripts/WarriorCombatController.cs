@@ -62,6 +62,14 @@ public class WarriorCombatController : MonoBehaviour
     Animator _animator;
     Alteruna.Avatar _avatar;
 
+    // NEW: Optional attack camera override (FPS mode)
+    private Transform _overrideAttackCamera;
+    public void OverrideAttackCamera(Transform cam)
+    {
+        _overrideAttackCamera = cam;
+    }
+
+
     int _comboStep = 0;
     float _lastAttackClickTime = -999f;
     float _lastAttackTime = -999f;
@@ -77,6 +85,8 @@ public class WarriorCombatController : MonoBehaviour
     public AudioSource slashAudioSource;
     public AudioClip slashAttackClip;
     public float slashVolume = 1.0f;
+
+    
 
     void Start()
     {
@@ -244,7 +254,9 @@ public class WarriorCombatController : MonoBehaviour
         Transform root = _playerControl != null ? _playerControl.transform : transform;
 
         Vector3 origin = root.position + Vector3.up * 1.0f; // roughly chest height
-        Vector3 forward = root.forward;
+        Transform cam = (_overrideAttackCamera != null) ? _overrideAttackCamera : root;
+        Vector3 forward = cam.forward;
+
 
         // Center of hit sphere is a bit in front of the player
         Vector3 center = origin + forward * range;

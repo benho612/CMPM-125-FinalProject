@@ -2,7 +2,6 @@ using UnityEngine;
 
 public class IngredientChopStartArea : MonoBehaviour
 {
-    public PlayerPickupUI pickupUI;
 
     private void OnTriggerStay(Collider other)
     {
@@ -19,21 +18,27 @@ public class IngredientChopStartArea : MonoBehaviour
         if (phase.State != CookingState.CookIngredients)
             return;
 
-        pickupUI.ShowCustom("Press E to cook ingredients");
+        var ui = other.GetComponentInParent<PlayerPickupUI>();
+        if (ui == null)
+            return;
 
+        ui.ShowCustom("Press E to cook ingredients");
+        // Start chopping mini-game
         if (Input.GetKeyDown(KeyCode.E))
         {
-            pickupUI.Hide();
-
-            var chop = other.GetComponent<IngredientChopController>();
+            var chop = other.GetComponentInParent<IngredientChopController>();
             if (chop != null)
+            {
                 chop.StartMiniGame();
+                ui.Hide();
+            }
         }
     }
 
     private void OnTriggerExit(Collider other)
     {
-        if (pickupUI != null)
-            pickupUI.Hide();
+        var ui = other.GetComponentInParent<PlayerPickupUI>();
+        if (ui != null)
+            ui.Hide();
     }
 }

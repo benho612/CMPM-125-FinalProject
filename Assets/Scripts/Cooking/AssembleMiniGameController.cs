@@ -4,7 +4,7 @@ using UnityEngine.UI;
 public class AssembleMiniGameController : MonoBehaviour, ICookingActionReceiver
 {
     [Header("Timing UI")]
-    public Slider timingSlider;
+    private Slider timingSlider;
     [Tooltip("0 to 1, inclusive range where a press counts as success.")]
     public float successMin = 0.4f;
     public float successMax = 0.6f;
@@ -20,11 +20,45 @@ public class AssembleMiniGameController : MonoBehaviour, ICookingActionReceiver
     private CookingPhaseManager phaseManager;
     private IngredientInventory inventory;
 
+    private GameObject FindUI(string name)
+    {
+        var objs = Resources.FindObjectsOfTypeAll<GameObject>();
+        foreach (var o in objs)
+        {
+            if (o.name == name)
+                return o;
+        }
+        return null;
+    }
+
+
     void Start()
     {
-        playerControl = GetComponent<PlayerControl>();
-        phaseManager = GetComponent<CookingPhaseManager>();
-        inventory = GetComponent<IngredientInventory>();
+        // Auto-find references if not assigned
+        if (playerControl == null)
+            playerControl = GetComponent<PlayerControl>();
+
+        if (phaseManager == null)
+            phaseManager = GetComponent<CookingPhaseManager>();
+
+        if (inventory == null)
+            inventory = GetComponent<IngredientInventory>();
+
+        // Auto-find timing slider
+        if (timingSlider == null)
+        {
+            var go = FindUI("AssembleTimingSlider");
+            if (go != null)
+                timingSlider = go.GetComponent<Slider>();
+        }
+
+        // Find ending panel in scene
+        if (GameObject.Find("EndingPanel") != null)
+        {
+            // Just confirming existence; no assignment needed unless you want a variable
+            Debug.Log("EndingPanel found in scene.");
+        }
+
 
         if (timingSlider != null)
         {

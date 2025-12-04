@@ -94,6 +94,14 @@ public class WizardCombatController : MonoBehaviour
     // Cached boss reference for quick damage routing
     private BossHealth _boss;
 
+    // NEW: Optional override for attack direction (FPS during chopping)
+    private Transform _overrideAttackCamera;
+    public void OverrideAttackCamera(Transform cam)
+    {
+        _overrideAttackCamera = cam;
+    }
+
+
     void Awake()
     {
         _playerControl = GetComponent<PlayerControl>();
@@ -184,12 +192,12 @@ public class WizardCombatController : MonoBehaviour
         if (attack.WasPressedThisFrame())
         {
             TryTapFireball();
-                var c = GetComponent<CookingPhaseManager>();
-                if (c != null && c.CurrentMiniGame != null)
-                {
-                    c.CurrentMiniGame.OnPlayerPrimaryAction();
-                    return; 
-                }
+            var c = GetComponent<CookingPhaseManager>();
+            if (c != null && c.CurrentMiniGame != null)
+            {
+                c.CurrentMiniGame.OnPlayerPrimaryAction();
+                return; 
+            }
         }
     }
 
@@ -247,7 +255,9 @@ public class WizardCombatController : MonoBehaviour
         // Spawn visual projectile if assigned
         if (smallFireballPrefab != null && firePoint != null && playerCamera != null)
         {
-            Vector3 aimDirection = playerCamera.transform.forward.normalized;
+            Transform cam = (_overrideAttackCamera != null) ? _overrideAttackCamera : playerCamera.transform;
+            Vector3 aimDirection = cam.forward.normalized;
+
             Quaternion aimRotation = Quaternion.LookRotation(aimDirection, Vector3.up);
             Instantiate(smallFireballPrefab, firePoint.position, aimRotation);
         }
@@ -270,8 +280,11 @@ public class WizardCombatController : MonoBehaviour
             return;
 
         // Ray forward from camera
-        Ray ray = new Ray(playerCamera.transform.position, playerCamera.transform.forward);
-        Vector3 impactPoint = playerCamera.transform.position + playerCamera.transform.forward * tapFireballRange;
+        Transform cam = (_overrideAttackCamera != null) ? _overrideAttackCamera : playerCamera.transform;
+
+        Ray ray = new Ray(cam.position, cam.forward);
+        Vector3 impactPoint = cam.position + cam.forward * tapFireballRange;
+
 
         // Try precise raycast against boss colliders first
         var bossColliders = _boss.GetComponentsInChildren<Collider>();
