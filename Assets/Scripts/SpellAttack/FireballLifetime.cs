@@ -12,6 +12,13 @@ public class FireballLifetime : MonoBehaviour
     [Header("Movement")]
     public float speed = 20f;
 
+    [Header("Damage")]
+    [Tooltip("Damage dealt to the boss when the fireball hits.")]
+    public float bossDamage = 50f;
+
+    [Tooltip("How far from the impact we consider a boss collider hit if the trigger didn't report it directly.")]
+    public float bossHitRadius = 0.8f;
+
     [Header("Hit Effects")]
     public GameObject hitVfxPrefab;
     public float hitVfxLifetime = 1f;
@@ -34,7 +41,7 @@ public class FireballLifetime : MonoBehaviour
 
     private void Update()
     {
-        // Don¡¦t move until the slash is activated
+        // Don't move until the slash is activated
         if (!_active || _hasHit)
             return;
 
@@ -53,8 +60,12 @@ public class FireballLifetime : MonoBehaviour
         if (_hasHit)
             return;
 
+        // Ignore local player completely
         if (other.CompareTag("Player"))
-            return;  // ignore player completely
+            return;
+
+        // Try to damage boss if present (collider or parent/root)
+        bool damagedBoss = TryDamageBoss(other, transform.position);
 
         _hasHit = true;
 
@@ -65,7 +76,46 @@ public class FireballLifetime : MonoBehaviour
             Destroy(fx, hitVfxLifetime);
         }
 
-        // Destroy slash immediately on impact
+        // Destroy fireball on any hit (visual projectile)
         Destroy(gameObject);
+    }
+
+    private bool TryDamageBoss(Collider hitCol, Vector3 impactPos)
+    {
+        // Look for BossHealth on the collider first, then on any parent
+        BossHealth boss = null;
+        if (!hitCol.TryGetComponent(out boss))
+            boss = hitCol.GetComponentInParent<BossHealth>();
+
+        // If not directly on the hit collider, validate proximity using ClosestPoint against boss colliders
+        if (boss == null)
+        {
+            boss = FindObjectOfType<BossHealth>();
+            if (boss != null)
+            {
+                var bossCols = boss.GetComponentsInChildren<Collider>();
+                foreach (var bc in bossCols)
+                {
+                    if (bc == null || !bc.enabled) continue;
+                    var closest = bc.ClosestPoint(impactPos);
+                    if (Vector3.Distance(closest, impactPos) <= bossHitRadius)
+                    {
+                        break; // boss found by proximity
+                    }
+                }
+            }
+        }
+
+        if (boss == null)
+            return false;
+
+        // Route damage through BossNetSync (host authoritative), fallback to local damage
+        var net = boss.GetComponent<BossNetSync>();
+        if (net != null)
+            net.RequestDamage(bossDamage);
+        else
+            boss.Damage(bossDamage);
+
+        return true;
     }
 }

@@ -19,6 +19,7 @@ GameObject:
   - component: {fileID: 7387383018468365380}
   - component: {fileID: -940402020210530260}
   - component: {fileID: 9052775223444854402}
+  - component: {fileID: 6854599671838094215}
   m_Layer: 6
   m_Name: Avatar
   m_TagString: Player
@@ -213,6 +214,7 @@ MonoBehaviour:
   defendedDamageMultiplier: 0.3
   normalHitTrigger: Normal_Hit
   defendHitTrigger: Defend_Hit
+  verbose: 1
 --- !u!114 &6092655716832943
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -231,6 +233,9 @@ MonoBehaviour:
   tapMaxDuration: 0.2
   chargeThreshold: 0.6
   attack01Cooldown: 2
+  tapFireballDamage: 50
+  tapFireballRange: 20
+  bossHitRadius: 0.9
   stateAttack01: Attack01
   stateAttack02Start: Attack02Start
   stateAttack02Maintain: Attack02Maintain
@@ -405,6 +410,38 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &6854599671838094215
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 125098771000295103}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7d07ca543f03a3c44accff6b47ab9bdb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerHealthSync
+  Multiplayer: {fileID: 0}
+  _uidString: 2efdb900-d661-4763-9cbb-16c400b3c52c
+  BucketBehaviors:
+  - Name: Min
+    NetLOD: 0
+    Frequency: -1
+  - Name: Low
+    NetLOD: 1
+    Frequency: 10
+  - Name: Mid
+    NetLOD: 2
+    Frequency: 30
+  - Name: High
+    NetLOD: 3
+    Frequency: 50
+  - Name: Max
+    NetLOD: 4
+    Frequency: 120
+  Reliability: 2
+  receiver: {fileID: 585299912668349793}
 --- !u!1 &697565512125543728
 GameObject:
   m_ObjectHideFlags: 0
@@ -642,7 +679,7 @@ CapsuleCollider:
   m_LayerOverridePriority: 0
   m_IsTrigger: 0
   m_ProvidesContacts: 0
-  m_Enabled: 0
+  m_Enabled: 1
   serializedVersion: 2
   m_Radius: 0.5
   m_Height: 1.5588825

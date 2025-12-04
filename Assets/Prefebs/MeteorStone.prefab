@@ -129,6 +129,9 @@ MonoBehaviour:
   damage: 25
   hitLayers:
     serializedVersion: 2
-    m_Bits: 55
+    m_Bits: 439
+  bossHitRadius: 1.2
   impactVfxPrefab: {fileID: 0}
   impactVfxLifetime: 2
+  shakeDuration: 0.25
+  shakeMagnitude: 0.35

@@ -1,11 +1,10 @@
 ﻿using System;
 using UnityEngine;
+using Alteruna;
 
 /// <summary>
 /// Handles health + hit reactions for a player avatar.
-/// Works with multiple character models / animators because it always uses
-/// the currently active child Animator, and it reads defending state from
-/// PlayerControl.IsDefending.
+/// Works with multiple character models / animators.
 /// </summary>
 public class PlayerDamageReceiver : MonoBehaviour
 {
@@ -26,16 +25,19 @@ public class PlayerDamageReceiver : MonoBehaviour
     [Tooltip("Animator trigger for a blocked / defend hit reaction.")]
     public string defendHitTrigger = "Defend_Hit";
 
+    [Header("Debug")]
+    [Tooltip("Enable detailed damage/health logs.")]
+    public bool verbose = false;
+
     private Animator _animator;
     private PlayerControl _playerControl;
+    private WarriorCombatController _warriorCombat;
 
     private int _normalHitHash;
     private int _defendHitHash;
 
     private bool _dead;
     private float _respawnTimer;
-
-    private WarriorCombatController _warriorCombat;
 
     // --------------------------------------------------------
     void Awake()
@@ -54,7 +56,7 @@ public class PlayerDamageReceiver : MonoBehaviour
         hp = maxHp;
 
         OnHealthChanged?.Invoke(hp, maxHp);
-        Debug.Log($"[PlayerDamageReceiver] Awake: hp={hp:0}/{maxHp:0} on '{name}'.");
+        if (verbose) Debug.Log($"[PlayerDamageReceiver] Awake: hp={hp:0}/{maxHp:0} on '{name}'.");
     }
 
     void Update()
@@ -85,49 +87,30 @@ public class PlayerDamageReceiver : MonoBehaviour
     {
         if (_dead) return;
 
-        bool isDefendingNow = false;
-
-        // Warriors
-        if (_warriorCombat != null && _warriorCombat.enabled)
-        {
-            isDefendingNow = _warriorCombat.IsDefending;
-        }
+        bool isDefendingNow = (_warriorCombat != null && _warriorCombat.enabled) && _warriorCombat.IsDefending;
 
         float finalDamage = Mathf.Max(0f, amount);
-
         if (isDefendingNow)
         {
             finalDamage *= defendedDamageMultiplier;
-            Debug.Log($"[PlayerDamageReceiver] Blocked damage on '{name}': incoming={amount:0.##} final={finalDamage:0.##} (mult={defendedDamageMultiplier:0.##}).");
-
             if (_animator != null)
             {
                 _animator.ResetTrigger(_normalHitHash);
                 _animator.SetTrigger(_defendHitHash);
             }
+            if (verbose) Debug.Log($"[PlayerDamageReceiver] Blocked: {amount:0.##} -> {finalDamage:0.##} on '{name}'.");
         }
         else
         {
-            Debug.Log($"[PlayerDamageReceiver] Normal damage on '{name}': incoming={amount:0.##}.");
             if (_animator != null)
             {
                 _animator.ResetTrigger(_defendHitHash);
                 _animator.SetTrigger(_normalHitHash);
             }
+            if (verbose) Debug.Log($"[PlayerDamageReceiver] Damage: {amount:0.##} on '{name}'.");
         }
 
-        float before = hp;
-        hp = Mathf.Clamp(hp - finalDamage, 0f, maxHp);
-        OnHealthChanged?.Invoke(hp, maxHp);
-        Debug.Log($"[PlayerDamageReceiver] HP change on '{name}': {before:0.##} -> {hp:0.##} (−{before - hp:0.##}).");
-
-        if (hp <= 0f)
-        {
-            _dead = true;
-            OnDeath?.Invoke();
-            _respawnTimer = 10f;
-            Debug.Log($"[PlayerDamageReceiver] '{name}' died.");
-        }
+        ApplyDamageInternal(finalDamage);
     }
 
     /// <summary>
@@ -138,7 +121,6 @@ public class PlayerDamageReceiver : MonoBehaviour
         if (_dead) return;
 
         float finalDamage = Mathf.Max(0f, amount);
-        Debug.Log($"[PlayerDamageReceiver] Unblockable damage on '{name}': incoming={amount:0.##}.");
 
         if (_animator != null)
         {
@@ -146,10 +128,86 @@ public class PlayerDamageReceiver : MonoBehaviour
             _animator.SetTrigger(_normalHitHash);
         }
 
+        if (verbose) Debug.Log($"[PlayerDamageReceiver] Unblockable: {amount:0.##} on '{name}'.");
+        ApplyDamageInternal(finalDamage);
+    }
+
+    // ---------------- Methods called by PlayerHealthSync (network RPC target) ----------------
+
+    public void RPC_ApplyDamage(float amount)
+    {
+        if (_dead) return;
+
+        bool isDefendingNow = (_warriorCombat != null && _warriorCombat.enabled) && _warriorCombat.IsDefending;
+
+        float finalDamage = Mathf.Max(0f, amount);
+        if (isDefendingNow)
+        {
+            finalDamage *= defendedDamageMultiplier;
+            if (_animator != null)
+            {
+                _animator.ResetTrigger(_normalHitHash);
+                _animator.SetTrigger(_defendHitHash);
+            }
+            if (verbose) Debug.Log($"[PlayerDamageReceiver] RPC Blocked: {amount:0.##} -> {finalDamage:0.##}.");
+        }
+        else
+        {
+            if (_animator != null)
+            {
+                _animator.ResetTrigger(_defendHitHash);
+                _animator.SetTrigger(_normalHitHash);
+            }
+            if (verbose) Debug.Log($"[PlayerDamageReceiver] RPC Damage: {amount:0.##}.");
+        }
+
+        ApplyDamageInternal(finalDamage);
+    }
+
+    public void RPC_ApplyUnblockableDamage(float amount)
+    {
+        if (_dead) return;
+
+        float finalDamage = Mathf.Max(0f, amount);
+
+        if (_animator != null)
+        {
+            _animator.ResetTrigger(_defendHitHash);
+            _animator.SetTrigger(_normalHitHash);
+        }
+
+        if (verbose) Debug.Log($"[PlayerDamageReceiver] RPC Unblockable: {amount:0.##}.");
+        ApplyDamageInternal(finalDamage);
+    }
+
+    public void RPC_SetHealth(float newHp, float newMaxHp)
+    {
+        maxHp = Mathf.Max(1f, newMaxHp);
+        float before = hp;
+        hp = Mathf.Clamp(newHp, 0f, maxHp);
+
+        OnHealthChanged?.Invoke(hp, maxHp);
+        if (verbose) Debug.Log($"[PlayerDamageReceiver] RPC_SetHealth: {before:0.##} -> {hp:0.##}/{maxHp:0.##}.");
+
+        if (hp <= 0f && !_dead)
+        {
+            _dead = true;
+            OnDeath?.Invoke();
+            _respawnTimer = 10f;
+            Debug.Log($"[PlayerDamageReceiver] '{name}' died (RPC).");
+        }
+    }
+
+    // --------------------------------------------------------
+    private void ApplyDamageInternal(float finalDamage)
+    {
+        if (finalDamage <= 0f) return;
+
         float before = hp;
         hp = Mathf.Clamp(hp - finalDamage, 0f, maxHp);
         OnHealthChanged?.Invoke(hp, maxHp);
-        Debug.Log($"[PlayerDamageReceiver] HP change on '{name}': {before:0.##} -> {hp:0.##} (−{before - hp:0.##}).");
+
+        if (verbose) Debug.Log($"[PlayerDamageReceiver] HP: {before:0.##} -> {hp:0.##} (−{before - hp:0.##}).");
 
         if (hp <= 0f)
         {
@@ -160,18 +218,14 @@ public class PlayerDamageReceiver : MonoBehaviour
         }
     }
 
-    // --------------------------------------------------------
     private void Respawn()
     {
         _dead = false;
         hp = maxHp;
         OnHealthChanged?.Invoke(hp, maxHp);
-        Debug.Log($"[PlayerDamageReceiver] Respawn '{name}': hp reset to {hp:0}/{maxHp:0}.");
+        Debug.Log($"[PlayerDamageReceiver] Respawn '{name}': hp={hp:0}/{maxHp:0}.");
     }
 
-    /// <summary>
-    /// Finds the currently active child Animator (wizard / male / female).
-    /// </summary>
     private Animator FindActiveAnimator()
     {
         var animators = GetComponentsInChildren<Animator>(true);

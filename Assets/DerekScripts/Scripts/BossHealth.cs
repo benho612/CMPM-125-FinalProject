@@ -11,7 +11,7 @@ public class BossHealth : MonoBehaviour
     [Tooltip("Seconds to wait after death before returning to Kitchen. Host will RPC load for all players.")]
     [SerializeField] float deathDelaySeconds = 10f;
     [Tooltip("Scene name to load after the boss dies.")]
-    [SerializeField] string returnSceneName = "KitchenScene";
+    [SerializeField] string returnSceneName = "KitchenScene"; // or "Scenes/KitchenScene" if that’s your exact Build Settings entry
 
     public float HP { get; private set; }
     public float MaxHP => maxHp;
@@ -44,8 +44,19 @@ public class BossHealth : MonoBehaviour
             if (bossAnimator) bossAnimator.CrossFade("Die", 0.1f);
             OnDeath?.Invoke();
 
-            // Host will RPC scene load to all players after delay
-            net?.BroadcastLoadSceneAfterDelay(returnSceneName, deathDelaySeconds);
+            // Use SceneRelay so the host broadcasts before leaving
+            var relay = FindObjectOfType<SceneRelay>();
+            if (relay != null)
+            {
+                // Use the same returnSceneName and delay you already expose
+                // Configure SceneRelay.kitchenSceneName in the inspector to match returnSceneName,
+                // or just pass delay here and let SceneRelay use its own name.
+                relay.HostBroadcastKitchen(deathDelaySeconds);
+            }
+            else
+            {
+                Debug.LogError("[BossHealth] SceneRelay not found; cannot broadcast scene change.");
+            }
         }
     }
 

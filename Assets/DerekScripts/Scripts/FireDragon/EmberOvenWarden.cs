@@ -38,6 +38,9 @@ public class EmberOvenWarden : BossController
     // Animator Hashes
     private static readonly int IdleHash = Animator.StringToHash("Base Layer.Idle");
     private static readonly int FireballHash = Animator.StringToHash("Base Layer.Fireball Shoot");
+
+    // With this corrected line:
+    bool isHost = Alteruna.Multiplayer.Instance != null && Alteruna.Multiplayer.Instance.Me != null && Alteruna.Multiplayer.Instance.Me.IsHost;
     private static readonly int ScreamHash = Animator.StringToHash("Base Layer.Scream");
     private static readonly int MoveSpeedID = Animator.StringToHash("MoveSpeed");
 
@@ -46,6 +49,8 @@ public class EmberOvenWarden : BossController
     private float _lastYawSendTime;
     private const float YawSendInterval = 0.05f;
     private const float YawDeltaThreshold = 0.8f;
+
+    bool IsHost => Alteruna.Multiplayer.Instance != null && Alteruna.Multiplayer.Instance.Me != null && Alteruna.Multiplayer.Instance.Me.IsHost;
 
     protected override void Awake()
     {
@@ -136,8 +141,13 @@ public class EmberOvenWarden : BossController
             yield return new WaitForSeconds(fireballAnimHold);
 
             Vector3 start = muzzle.position;
+
+            // Aim at ground beneath the target (prevents mid-air despawn)
             Vector3 dest = target.position;
-            dest.y = start.y;
+            if (Physics.Raycast(dest + Vector3.up * 2f, Vector3.down, out var groundHit, 100f, LayerMask.GetMask("Default", "Terrain"), QueryTriggerInteraction.Ignore))
+                dest = groundHit.point;
+            else
+                dest.y = transform.position.y;
 
             if (net != null) net.BroadcastSpawnFireball(start, dest, difficultyScale);
             yield return new WaitForSeconds(0.35f);
@@ -154,9 +164,18 @@ public class EmberOvenWarden : BossController
         var proj = go.GetComponent<ParabolicProjectile>();
         if (proj)
         {
-            proj.hitMask = playerMask;
+            proj.hitMask = playerMask;                         // already confirmed matches players
+            proj.groundMask = LayerMask.GetMask("Default", "Terrain");
+            proj.radius = Mathf.Max(proj.radius, 1.2f);        // bump radius to match HurtBox scale
             proj.speed *= speedScale;
-            proj.Launch(start, dest, hostAuth: false);
+            proj.verbose = IsHost;
+
+            bool hostAuth = IsHost;
+            proj.Launch(start, dest, hostAuth);
+        }
+        else
+        {
+            Debug.LogWarning("[Warden] Fireball prefab missing ParabolicProjectile component.");
         }
     }
 
@@ -188,7 +207,7 @@ public class EmberOvenWarden : BossController
     {
         if (!ventPrefab) return;
 
-        var vent = Instantiate(ventPrefab, pos, ventPrefab.transform.rotation);
+        var vent = Instantiate(ventPrefab, pos, Quaternion.identity);
         var puddle = vent.GetComponent<GroundPuddle>();
         if (puddle)
         {
@@ -197,6 +216,19 @@ public class EmberOvenWarden : BossController
             puddle.radius = 2f;
             puddle.lifetime = 6f;
             puddle.hitMask = playerMask;
+        }
+
+        var gp = vent.GetComponent<GroundPuddle>();
+        if (gp != null)
+        {
+            bool isServer = Alteruna.Multiplayer.Instance != null && Alteruna.Multiplayer.Instance.Me != null && Alteruna.Multiplayer.Instance.Me.IsHost;
+            gp.authoritative = isServer;
+
+            // Ensure the mask targets Player layer (index/name may vary).
+            gp.hitMask = LayerMask.GetMask("Player");
+
+            if (gp.verbose)
+                Debug.Log($"[EmberOvenWarden] Spawned VentPuddle. isServer={isServer}, authoritative={gp.authoritative}, hitMask={gp.hitMask.value}");
         }
     }
 

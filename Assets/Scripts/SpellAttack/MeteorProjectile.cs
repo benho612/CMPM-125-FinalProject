@@ -9,7 +9,11 @@ public class MeteorProjectile : MonoBehaviour
 
     [Header("Damage")]
     public float damage = 25f;
+    [Tooltip("Layers this meteor can interact with (boss/environment).")]
     public LayerMask hitLayers;   // who can be hit
+
+    [Tooltip("Radius around impact used to validate boss proximity when no collider was passed.")]
+    public float bossHitRadius = 1.2f;
 
     [Header("Impact VFX (optional)")]
     public GameObject impactVfxPrefab;
@@ -54,24 +58,24 @@ public class MeteorProjectile : MonoBehaviour
 
     void OnTriggerEnter(Collider other)
     {
+        // Respect layer filtering
         if (((1 << other.gameObject.layer) & hitLayers) == 0)
-            return; // ignore layers we don't want to hit
+            return;
 
         Impact(other);
     }
 
     void Impact(Collider hit)
     {
-        // TODO: your damage system here
-        // Example:
-        // var hp = hit ? hit.GetComponent<Health>() : null;
-        // if (hp != null) hp.TakeDamage(damage);
+        // Damage boss if we hit it directly or are close enough at the impact position
+        Vector3 impactPos = transform.position;
+        TryDamageBoss(hit, impactPos, damage);
 
         if (impactVfxPrefab != null)
         {
             GameObject fx = Instantiate(
                 impactVfxPrefab,
-                transform.position,
+                impactPos,
                 Quaternion.identity
             );
             Destroy(fx, impactVfxLifetime);
@@ -83,5 +87,47 @@ public class MeteorProjectile : MonoBehaviour
         }
 
         Destroy(gameObject);
+    }
+
+    private bool TryDamageBoss(Collider hitCol, Vector3 impactPos, float dmg)
+    {
+        BossHealth boss = null;
+
+        // If a collider was provided, try that first
+        if (hitCol != null)
+        {
+            if (!hitCol.TryGetComponent(out boss))
+                boss = hitCol.GetComponentInParent<BossHealth>();
+        }
+
+        // Otherwise or if not found, proximity validate against boss colliders near the impact
+        if (boss == null)
+        {
+            boss = FindObjectOfType<BossHealth>();
+            if (boss != null)
+            {
+                var bossCols = boss.GetComponentsInChildren<Collider>();
+                foreach (var bc in bossCols)
+                {
+                    if (bc == null || !bc.enabled) continue;
+                    var closest = bc.ClosestPoint(impactPos);
+                    if (Vector3.Distance(closest, impactPos) <= bossHitRadius)
+                    {
+                        break; // boss found in range
+                    }
+                }
+            }
+        }
+
+        if (boss == null)
+            return false;
+
+        var net = boss.GetComponent<BossNetSync>();
+        if (net != null)
+            net.RequestDamage(dmg);
+        else
+            boss.Damage(dmg);
+
+        return true;
     }
 }

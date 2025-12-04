@@ -122,7 +122,19 @@ public class BossNetSync : Synchronizable
         if (_sendRemote == null) InitRemoteSender();
         bool ok = _sendRemote(methodName, args);
         if (!ok)
-            Debug.LogError($"[BossNetSync] FAILED to send remote method '{methodName}'. Sender={_sendRemoteName}");
+        {
+            Debug.LogError($"[BossNetSync] FAILED to send remote '{methodName}'. Sender={_sendRemoteName}. Trying InvokeRemoteMethod fallback.");
+            try
+            {
+                InvokeRemoteMethod(methodName, args);
+                Debug.Log($"[BossNetSync] Fallback InvokeRemoteMethod succeeded for '{methodName}'.");
+                ok = true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[BossNetSync] Fallback InvokeRemoteMethod failed for '{methodName}': {ex}");
+            }
+        }
         return ok;
     }
 
@@ -192,15 +204,30 @@ public class BossNetSync : Synchronizable
     {
         Debug.Log($"[BossNetSync] Scheduling scene load '{sceneName}' in {delaySeconds:0.##}s.");
         yield return new WaitForSeconds(Mathf.Max(0f, delaySeconds));
-        SendRemote(nameof(RPC_LoadScene), sceneName);
-        RPC_LoadScene(sceneName); // host local
+
+        // Explicitly invoke RPC over Alteruna Synchronizable
+        try
+        {
+            InvokeRemoteMethod(nameof(RPC_LoadScene), sceneName);
+            Debug.Log($"[BossNetSync] InvokeRemoteMethod(RPC_LoadScene, '{sceneName}') dispatched to peers.");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[BossNetSync] InvokeRemoteMethod failed for RPC_LoadScene: {ex}");
+        }
+
+        // Host also loads locally
+        RPC_LoadScene(sceneName);
     }
 
     [SynchronizableMethod]
     public void RPC_LoadScene(string sceneName)
     {
-        Debug.Log($"[BossNetSync] RPC_LoadScene -> '{sceneName}'");
-        Multiplayer?.LoadScene(sceneName, true); // moves avatars with the scene
+        var inRoom = Multiplayer != null && Multiplayer.InRoom;
+        var userIdx = Multiplayer != null && Multiplayer.GetUser() != null ? Multiplayer.GetUser().Index : -1;
+        Debug.Log($"[BossNetSync] RPC_LoadScene on {(IsHost() ? "HOST" : "CLIENT")} user={userIdx} InRoom={inRoom} -> '{sceneName}'");
+
+        Multiplayer.LoadScene(sceneName, true);
     }
 
     // -------------------------
