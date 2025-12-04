@@ -94,7 +94,14 @@ public class WizardCombatController : MonoBehaviour
     // Cached boss reference for quick damage routing
     private BossHealth _boss;
 
-    // NEW: Optional override for attack direction (FPS during chopping)
+    [Header("Meteor Cooldown")]
+    [Tooltip("Cooldown between meteor casts (seconds).")]
+    public float meteorCooldown = 3f;
+
+    // runtime
+    private float _lastMeteorCastTime = -999f;
+
+        // NEW: Optional override for attack direction (FPS during chopping)
     private Transform _overrideAttackCamera;
     public void OverrideAttackCamera(Transform cam)
     {
@@ -349,6 +356,13 @@ public class WizardCombatController : MonoBehaviour
 
         if (rmbDown && !_isAiming && !_isChanneling)
         {
+            float now = Time.time;
+            if (now - _lastMeteorCastTime < meteorCooldown)
+            {
+                // still on cooldown, ignore this right click
+                return;
+            }
+
             _isAiming = true;
             BeginMeteorAim();
             _playerControl.EnterAimMode();
@@ -389,6 +403,8 @@ public class WizardCombatController : MonoBehaviour
             _playerControl.ExitAimMode();
             EndMeteorAim();
             _isAiming = false;
+
+            _lastMeteorCastTime = Time.time;
 
             _playerControl?.EnterCombatFromAttack();
             _playerControl?.RegisterCombatAction();
