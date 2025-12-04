@@ -1684,10 +1684,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 958128821}
     m_Modifications:
-    - target: {fileID: 3517113065941692978, guid: 4741eafe225987a4094d5fde60d085f2, type: 3}
-      propertyPath: progressBar
-      value: 
-      objectReference: {fileID: 1423759089}
     - target: {fileID: 4244283379763041934, guid: 4741eafe225987a4094d5fde60d085f2, type: 3}
       propertyPath: m_Name
       value: PolyArtWizardStandardMat Variant
@@ -2261,7 +2257,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 227084215}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 1312809854, guid: 0ae8d181602a00248a82f64a684a1c88, type: 3}
   m_Name: 
@@ -2547,7 +2543,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!64 &281400269
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -3464,10 +3460,6 @@ PrefabInstance:
       propertyPath: m_IsActive
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 4877443518093520734, guid: c4dd0b8688a67ad4f91805359bb09c5a, type: 3}
-      propertyPath: progressBar
-      value: 
-      objectReference: {fileID: 1423759089}
     - target: {fileID: 6254286937891303704, guid: c4dd0b8688a67ad4f91805359bb09c5a, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
       value: -0
@@ -4387,10 +4379,6 @@ PrefabInstance:
       propertyPath: m_LocalRotation.z
       value: 0.092279404
       objectReference: {fileID: 0}
-    - target: {fileID: 4877443518093520734, guid: c4dd0b8688a67ad4f91805359bb09c5a, type: 3}
-      propertyPath: progressBar
-      value: 
-      objectReference: {fileID: 1423759089}
     - target: {fileID: 5141289632621166589, guid: c4dd0b8688a67ad4f91805359bb09c5a, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0.13777298
@@ -4851,7 +4839,9 @@ PrefabInstance:
       propertyPath: m_LocalRotation.z
       value: -0.6286142
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: 0}
+    - {fileID: 0}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
@@ -9146,6 +9136,13 @@ GameObject:
   - component: {fileID: 958128814}
   - component: {fileID: 958128813}
   - component: {fileID: 958128812}
+  - component: {fileID: 958128828}
+  - component: {fileID: 958128827}
+  - component: {fileID: 958128826}
+  - component: {fileID: 958128825}
+  - component: {fileID: 958128824}
+  - component: {fileID: 958128823}
+  - component: {fileID: 958128822}
   m_Layer: 6
   m_Name: swordguy
   m_TagString: Player
@@ -9364,7 +9361,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 958128811}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 1312809854, guid: 0ae8d181602a00248a82f64a684a1c88, type: 3}
   m_Name: 
@@ -9432,6 +9429,114 @@ Transform:
   - {fileID: 1306419657}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &958128822
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 958128811}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6a822de6aa427934a935ef7fcc3c08bd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AssembleMiniGameController
+  timingSlider: {fileID: 982638718}
+  successMin: 0.4
+  successMax: 0.6
+  speed: 1.5
+--- !u!114 &958128823
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 958128811}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ae10734569ceba345bcfc8917fc322b5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::IngredientChopController
+  hitsRequired: 10
+  fpsCamera: {fileID: 964416582}
+  fpsLook: {fileID: 964416583}
+  progressBar: {fileID: 1755575934}
+  spawner: {fileID: 1825025087}
+  heightBoost: 1
+--- !u!114 &958128824
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 958128811}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b9e24419682a25943979faa83c0d7fb5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerPickupUI
+  promptText: {fileID: 317113867}
+--- !u!114 &958128825
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 958128811}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a208e60784a01b44a9e8164427b6c9ba, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::IngredientInventory
+--- !u!114 &958128826
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 958128811}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3f5578a9dd67f4346afd526894724b72, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SoupHeatController
+  minTemp: 0
+  maxTemp: 100
+  startingTemp: 50
+  coolingSpeed: 5
+  heatingAmount: 10
+  greenStart: 40
+  greenEnd: 70
+  requiredTimeInGreen: 6
+  tempSlider: {fileID: 2084118920}
+  progressSlider: {fileID: 515126804}
+--- !u!114 &958128827
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 958128811}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 710268fa4e1d77e499acdbe3e39e3b98, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DoughPrepController
+  mixDuration: 4
+  progressBar: {fileID: 1423759089}
+--- !u!114 &958128828
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 958128811}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b7307beb5a2490149b8d9255c55e4245, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CookingPhaseManager
+  checklist: {fileID: 1860782774}
 --- !u!4 &961533972 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 4302940517649464, guid: 99bf85d404a04ee459c668786c801529, type: 3}
@@ -14179,7 +14284,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1357031700
 RectTransform:
   m_ObjectHideFlags: 0
@@ -15375,7 +15480,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b7307beb5a2490149b8d9255c55e4245, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CookingPhaseManager
-  checklist: {fileID: 1860782774}
+  checklist: {fileID: 0}
 --- !u!114 &1441864706
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -18652,9 +18757,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 68a25595d1f87da46a7878a5d1592acd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ChecklistUI
-  inventory: {fileID: 1441864708}
-  checklistText: {fileID: 1482192711}
   panel: {fileID: 215920838}
+  checklistText: {fileID: 1482192711}
+  displayOrder:
+  - Horn
+  - Water
+  - Dough
+  - Bone
+  - Garlic
+  - Condiments
+  - Pork
+  - Egg
+  - Vegetable
+  - Noodles
+  - Soup
+  - Chopped Vegetables
 --- !u!1 &1867570154
 GameObject:
   m_ObjectHideFlags: 0
@@ -20255,18 +20372,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1441864704}
     m_Modifications:
-    - target: {fileID: -9034491593780931554, guid: 4741eafe225987a4094d5fde60d085f2, type: 3}
-      propertyPath: m_Enabled
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3517113065941692978, guid: 4741eafe225987a4094d5fde60d085f2, type: 3}
-      propertyPath: m_Enabled
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3517113065941692978, guid: 4741eafe225987a4094d5fde60d085f2, type: 3}
-      propertyPath: progressBar
-      value: 
-      objectReference: {fileID: 1423759089}
     - target: {fileID: 4244283379763041934, guid: 4741eafe225987a4094d5fde60d085f2, type: 3}
       propertyPath: m_Name
       value: PolyArtWizardStandardMat Variant
