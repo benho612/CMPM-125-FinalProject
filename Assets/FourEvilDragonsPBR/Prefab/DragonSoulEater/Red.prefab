@@ -597,7 +597,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9aac51d073718224f9123eee043238e1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BossHealth
-  maxHp: 1000
+  maxHp: 10000
   net: {fileID: 5315416028653137240}
   bossAnimator: {fileID: 0}
   deathDelaySeconds: 10
