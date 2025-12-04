@@ -9,17 +9,18 @@ public class ChecklistUI : MonoBehaviour
 
     private string[] displayOrder = new string[]
     {
+        "Horn",
         "Water",
         "Dough",
-        "Noodles",
-        "Horn",
-        "Bones",
+        "Bone",
         "Garlic",
         "Condiments",
-        "Soup",
         "Pork",
         "Egg",
-        "Vegetable"
+        "Vegetable",
+        "Noodles",
+        "Soup",
+        "Chopped Vegetables"
     };
 
     void Start()
@@ -49,7 +50,10 @@ public class ChecklistUI : MonoBehaviour
 
     public void Show()
     {
-        if (panel != null) panel.SetActive(true);
+        if (panel != null){
+            Debug.Log("Showing checklist UI.");
+            panel.SetActive(true);
+        }
     }
 
     public void Hide()

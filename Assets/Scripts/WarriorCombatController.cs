@@ -125,6 +125,13 @@ public class WarriorCombatController : MonoBehaviour
 
         if (Input.GetMouseButtonDown(0)) // LMB
         {
+            var c = GetComponent<CookingPhaseManager>();
+            if (c != null && c.CurrentMiniGame != null)
+            {
+                c.CurrentMiniGame.OnPlayerPrimaryAction();
+                return; 
+            }
+
             // basic cooldown
             if (Time.time - _lastAttackTime < attackCooldown)
                 return;
@@ -149,13 +156,6 @@ public class WarriorCombatController : MonoBehaviour
 
             if (_playerControl != null)
                 _playerControl.EnterCombatFromAttack();
-            
-            var c = GetComponent<CookingPhaseManager>();
-            if (c != null && c.CurrentMiniGame != null)
-            {
-                c.CurrentMiniGame.OnPlayerPrimaryAction();
-                return; 
-            }
 
 
         }
@@ -239,7 +239,15 @@ public class WarriorCombatController : MonoBehaviour
         Transform root = _playerControl != null ? _playerControl.transform : transform;
 
         Vector3 origin = root.position + Vector3.up * 1.0f; // roughly chest height
-        Vector3 forward = root.forward;
+        // override attack direction during chopping mini-game
+        Vector3 forward;
+
+        var chop = GetComponent<IngredientChopController>();
+        if (chop != null && chop.IsActive)
+            forward = chop.GetAttackDirection();
+        else
+            forward = root.forward;
+
 
         // Center of hit sphere is a bit in front of the player
         Vector3 center = origin + forward * range;

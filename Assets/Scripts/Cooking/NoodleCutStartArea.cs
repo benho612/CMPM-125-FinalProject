@@ -17,7 +17,7 @@ public class NoodleCutStartArea : MonoBehaviour
         // --------------------------------------------------
         // Show / Hide prompt
         // --------------------------------------------------
-        if (phase.State == CookingState.PrepDough && hasDough)
+        if (hasDough)
         {
             // show prompt: same UI as ingredient pickup
             if (ui != null)
@@ -33,8 +33,7 @@ public class NoodleCutStartArea : MonoBehaviour
         // --------------------------------------------------
         // Press E to start cutting noodles
         // --------------------------------------------------
-        if (phase.State == CookingState.PrepDough &&
-            hasDough &&
+        if (hasDough &&
             Input.GetKeyDown(KeyCode.E))
         {
             var cutter = other.GetComponentInParent<DoughPrepController>();

@@ -174,13 +174,13 @@ public class WizardCombatController : MonoBehaviour
         // --- press ---
         if (attack.WasPressedThisFrame())
         {
-            TryTapFireball();
             var c = GetComponent<CookingPhaseManager>();
                 if (c != null && c.CurrentMiniGame != null)
                 {
                     c.CurrentMiniGame.OnPlayerPrimaryAction();
                     return; 
                 }
+            TryTapFireball();
             
         }
 
@@ -249,8 +249,21 @@ public class WizardCombatController : MonoBehaviour
 
         if (smallFireballPrefab != null && firePoint != null && playerCamera != null)
         {
-            Vector3 aimDirection = playerCamera.transform.forward;
+            Vector3 aimDirection;
+
+            // If chopping mini-game is active, use FPS camera direction
+            var chop = GetComponent<IngredientChopController>();
+            if (chop != null && chop.IsActive)
+            {
+                aimDirection = chop.GetAttackDirection();
+            }
+            else
+            {
+                aimDirection = playerCamera.transform.forward;
+            }
+
             aimDirection.Normalize();
+
 
             Quaternion aimRotation = Quaternion.LookRotation(aimDirection, Vector3.up);
 

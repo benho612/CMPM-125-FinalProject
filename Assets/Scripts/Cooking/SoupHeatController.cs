@@ -28,11 +28,14 @@ public class SoupHeatController : MonoBehaviour, ICookingActionReceiver
 
     private CookingPhaseManager phaseManager;
     private PlayerControl playerControl;
+    private IngredientInventory inventory;
+
 
     void Start()
     {
         phaseManager = GetComponent<CookingPhaseManager>();
         playerControl = GetComponent<PlayerControl>();
+        inventory = GetComponent<IngredientInventory>();
     }
 
     public void StartMiniGame()
@@ -96,6 +99,11 @@ public class SoupHeatController : MonoBehaviour, ICookingActionReceiver
     private void CompleteMiniGame()
     {
         isActive = false;
+        if (inventory != null)
+        {
+            inventory.Add("Soup", 1);
+        }
+
 
         if (tempSlider != null) tempSlider.gameObject.SetActive(false);
         if (progressSlider != null) progressSlider.gameObject.SetActive(false);
@@ -103,8 +111,11 @@ public class SoupHeatController : MonoBehaviour, ICookingActionReceiver
         playerControl.canMove = true;
         phaseManager.CurrentMiniGame = null;
 
-        phaseManager.AdvanceState(CookingState.CookIngredients);
+        //phaseManager.AdvanceState(CookingState.CookIngredients);
+        phaseManager.CheckForPhaseUnlocks();
+
 
         Debug.Log("Soup mini-game finished.");
     }
+
 }

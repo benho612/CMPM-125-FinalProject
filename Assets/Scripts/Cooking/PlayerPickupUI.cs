@@ -39,4 +39,13 @@ public class PlayerPickupUI : MonoBehaviour
 
         showing = false;
     }
+
+    public void ShowCustom(string text)
+    {
+        if (promptText == null) return;
+
+        promptText.text = text;
+        promptText.gameObject.SetActive(true);
+    }
+
 }
