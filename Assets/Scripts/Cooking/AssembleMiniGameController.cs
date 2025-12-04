@@ -183,7 +183,8 @@ public class AssembleMiniGameController : MonoBehaviour, ICookingActionReceiver
             Debug.Log("Both final ramen halves complete. Game over!");
 
             // Option A: Show a simple end panel
-            var ending = GameObject.Find("EndingPanel");
+            //var ending = GameObject.Find("EndingPanel");
+            var ending = FindUI("EndingPanel");
             if (ending != null)
             {
                 ending.SetActive(true);
